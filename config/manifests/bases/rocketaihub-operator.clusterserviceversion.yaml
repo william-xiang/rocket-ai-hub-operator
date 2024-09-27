@@ -1,0 +1,46 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: rocketaihub-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: RocketAIHub is the Schema for the rocketaihubs API
+      displayName: Rocket AIHub
+      kind: RocketAIHub
+      name: rocketaihubs.operator.ibm.com
+      version: v1alpha1
+  description: This is the operator for Rocket AI Hub which provides AI and machine
+    learning (ML) capabilities optimized for IBM Power systems.
+  displayName: Rocket AI Hub operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - AI
+  - ML
+  links:
+  - name: Rocketaihub Operator
+    url: https://rocketaihub-operator.domain
+  maturity: alpha
+  provider:
+    name: IBM
+  version: 0.0.0

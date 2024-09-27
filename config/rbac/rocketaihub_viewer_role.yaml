@@ -1,0 +1,23 @@
+# permissions for end users to view rocketaihubs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: rocketaihub-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: rocketaihub-viewer-role
+rules:
+- apiGroups:
+  - operator.ibm.com
+  resources:
+  - rocketaihubs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operator.ibm.com
+  resources:
+  - rocketaihubs/status
+  verbs:
+  - get

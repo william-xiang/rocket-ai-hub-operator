@@ -1,0 +1,32 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - operator.ibm.com
+  resources:
+  - rocketaihubs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.ibm.com
+  resources:
+  - rocketaihubs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - operator.ibm.com
+  resources:
+  - rocketaihubs/status
+  verbs:
+  - get
+  - patch
+  - update

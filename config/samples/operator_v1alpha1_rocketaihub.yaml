@@ -1,0 +1,9 @@
+apiVersion: operator.ibm.com/v1alpha1
+kind: RocketAIHub
+metadata:
+  labels:
+    app.kubernetes.io/name: rocketaihub-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: rocketaihub-sample
+spec:
+  # TODO(user): Add fields here

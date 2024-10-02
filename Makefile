@@ -19,9 +19,8 @@ endif
 # To re-generate a bundle for any other default channel without changing the default setup, you can:
 # - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
 # - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
-ifneq ($(origin DEFAULT_CHANNEL), undefined)
+DEFAULT_CHANNEL ?= alpha
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
-endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 # IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for remote images.
@@ -297,6 +296,17 @@ OPM = $(shell which opm)
 endif
 endif
 
+# YQ=$(PROJECT_PATH)/bin/yq
+# YQ_VERSION := v4.34.2
+# $(YQ):
+# 	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4@$(YQ_VERSION))
+
+.PHONY: yq
+YQ = $(LOCALBIN)/yq
+YQ_VERSION := v4.34.2
+yq: ## Download yq locally if necessary.
+	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4,$(YQ_VERSION))
+
 # A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
 # These images MUST exist in a registry and be pull-able.
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
@@ -308,6 +318,22 @@ CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:v$(VERSION)
 ifneq ($(origin CATALOG_BASE_IMG), undefined)
 FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG)
 endif
+
+# Generate content for a file-based catalog
+.PHONY: catalog
+catalog: opm
+	# Generate the catalog dockerfile
+	$(OPM) generate dockerfile catalog
+	# Generate an olm.package declarative config blob
+	$(OPM) init rocketaihub-operator $(BUNDLE_DEFAULT_CHANNEL) --output yaml > catalog/operator.yaml
+	# Add bundle to the catalog
+	$(OPM) render $(BUNDLE_IMG) --output=yaml >> catalog/operator.yaml
+	# Update the channel entry for the bundle
+	OPERATOR_VERSION=rocketaihub-operator.v$(VERSION) \
+	DEFAULT_CHANNEL=$(DEFAULT_CHANNEL) \
+	$(YQ) eval -i '.entries[0].name = strenv(OPERATOR_VERSION) | .name = strenv(DEFAULT_CHANNEL)' catalog/rocketaihub-operator-channel-entry.yaml
+	# Validate the generated file-based catalog
+	$(OPM) validate catalog
 
 # Build a catalog image by adding bundle images to an empty catalog using the operator package manager tool, 'opm'.
 # This recipe invokes 'opm' in 'semver' bundle add mode. For more information on add modes, see:

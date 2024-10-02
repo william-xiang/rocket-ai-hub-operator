@@ -1,0 +1,6 @@
+---
+schema: olm.channel
+package: rocketaihub-operator
+name: alpha
+entries:
+  - name: rocketaihub-operator.v0.0.0

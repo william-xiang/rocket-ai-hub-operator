@@ -18,7 +18,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-09-27T13:37:18Z"
+    createdAt: "2024-10-02T22:01:57Z"
     operators.operatorframework.io/builder: operator-sdk-v1.37.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: rocketaihub-operator.v0.0.1
@@ -130,7 +130,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: quay.io/williamxiang/rocketaihub-operator:0.0.1
+                image: quay.io/williamxiang/rocketaihub-operator:v0.0.1
                 livenessProbe:
                   httpGet:
                     path: /healthz

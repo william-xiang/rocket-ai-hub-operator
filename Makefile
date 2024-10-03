@@ -244,7 +244,7 @@ set -e; \
 package=$(2)@$(3) ;\
 echo "Downloading $${package}" ;\
 GOBIN=$(LOCALBIN) go install $${package} ;\
-mv "$$(echo "$(1)" | sed "s/-$(3)$$//")" $(1) ;\
+mv -n "$$(echo "$(1)" | sed "s/-$(3)$$//")" $(1) ;\
 }
 endef
 
@@ -266,7 +266,7 @@ endif
 endif
 
 .PHONY: bundle
-bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
+bundle: manifests kustomize operator-sdk yq ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
@@ -343,8 +343,8 @@ catalog: opm yq
 
 # Build a catalog image by adding bundle images to an empty catalog using the operator package manager tool, 'opm'.
 # Ref https://olm.operatorframework.io/docs/tasks/creating-a-catalog/#catalog-creation-with-raw-file-based-catalogs
-.PHONY: catalog-build
-catalog-build: catalog ## Build a catalog image.
+.PHONY: catalog-buildx
+catalog-buildx: catalog ## Build a catalog image.
 	$(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
 	$(CONTAINER_TOOL) buildx build --push --provenance=false --platform=$(PLATFORMS) --tag ${CATALOG_IMG} -f catalog.Dockerfile .

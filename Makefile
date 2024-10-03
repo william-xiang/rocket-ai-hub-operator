@@ -269,6 +269,9 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+	# add supported os and arch in CSV
+	$(YQ) eval '.metadata.labels["operatorframework.io/arch.ppc64le"] = "supported" | .metadata.labels["operatorframework.io/os.linux"] = "supported"' \
+		-i ./bundle/manifests/rocketaihub-operator.clusterserviceversion.yaml
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
@@ -302,11 +305,6 @@ else
 OPM = $(shell which opm)
 endif
 endif
-
-# YQ=$(PROJECT_PATH)/bin/yq
-# YQ_VERSION := v4.34.2
-# $(YQ):
-# 	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4@$(YQ_VERSION))
 
 .PHONY: yq
 YQ = $(LOCALBIN)/yq

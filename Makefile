@@ -160,7 +160,7 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
 	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
+	- $(CONTAINER_TOOL) buildx build --push --provenance=false --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
 	- $(CONTAINER_TOOL) buildx rm project-v3-builder
 	rm Dockerfile.cross
 
@@ -279,7 +279,7 @@ bundle-build: ## Build the bundle image.
 bundle-buildx: bundle ## Build the bundle image.
 	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${BUNDLE_IMG} -f bundle.Dockerfile .
+	- $(CONTAINER_TOOL) buildx build --push --provenance=false --platform=$(PLATFORMS) --tag ${BUNDLE_IMG} -f bundle.Dockerfile .
 	- $(CONTAINER_TOOL) buildx rm project-v3-builder
 
 .PHONY: bundle-push
@@ -348,7 +348,7 @@ catalog: opm yq
 catalog-build: catalog ## Build a catalog image.
 	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${CATALOG_IMG} -f catalog.Dockerfile .
+	- $(CONTAINER_TOOL) buildx build --push --provenance=false --platform=$(PLATFORMS) --tag ${CATALOG_IMG} -f catalog.Dockerfile .
 	- $(CONTAINER_TOOL) buildx rm project-v3-builder
 
 # Push the catalog image.

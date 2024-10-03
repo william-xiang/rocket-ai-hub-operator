@@ -321,7 +321,7 @@ endif
 
 # Generate content for a file-based catalog
 .PHONY: catalog
-catalog: opm
+catalog: opm yq
 	# Generate the catalog dockerfile
 	$(OPM) generate dockerfile catalog
 	# Generate an olm.package declarative config blob
@@ -336,11 +336,13 @@ catalog: opm
 	$(OPM) validate catalog
 
 # Build a catalog image by adding bundle images to an empty catalog using the operator package manager tool, 'opm'.
-# This recipe invokes 'opm' in 'semver' bundle add mode. For more information on add modes, see:
-# https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
+# Ref https://olm.operatorframework.io/docs/tasks/creating-a-catalog/#catalog-creation-with-raw-file-based-catalogs
 .PHONY: catalog-build
-catalog-build: opm ## Build a catalog image.
-	$(OPM) index add --container-tool docker --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+catalog-build: catalog ## Build a catalog image.
+	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
+	$(CONTAINER_TOOL) buildx use project-v3-builder
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${CATALOG_IMG} -f catalog.Dockerfile .
+	- $(CONTAINER_TOOL) buildx rm project-v3-builder
 
 # Push the catalog image.
 .PHONY: catalog-push

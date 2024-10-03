@@ -21,16 +21,18 @@ TODO: Add instructions to uninstall the operator and clean up the resources
 ### Prerequisites
 
 - go version v1.21.0+
-- docker version 19.03+ with buildx enabled
+- docker version 19.03+ with buildx enabled (refer to the [link](https://docs.docker.com/build/building/multi-platform/) for setting up environment for multi-platform builds)
 - oc version v4.14+.
 - Access to an OpenShift v4.14+ cluster on ppc64le.
+
+
 
 ### To Deploy on the cluster
 
 **Build and push your image to the location specified by `IMG`:**
 
 ```sh
-make docker-build docker-push IMG=<some-registry>/rocketaihub-operator:tag
+make docker-buildx IMG=<some-registry>/rocketaihub-operator:tag
 ```
 
 >**NOTE:** This image ought to be published in the personal registry you specified.

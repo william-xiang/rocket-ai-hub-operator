@@ -308,8 +308,8 @@ endif
 endif
 
 .PHONY: yq
-YQ = $(LOCALBIN)/yq
 YQ_VERSION := v4.34.2
+YQ := $(LOCALBIN)/yq-$(YQ_VERSION)
 yq: ## Download yq locally if necessary.
 	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4,$(YQ_VERSION))
 

@@ -18,198 +18,200 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-10-02T22:01:57Z"
-    operators.operatorframework.io/builder: operator-sdk-v1.37.0
+    createdAt: "2025-04-30T00:57:29Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.39.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: rocketaihub-operator.v0.0.1
   namespace: placeholder
+  labels:
+    operatorframework.io/arch.ppc64le: supported
+    operatorframework.io/os.linux: supported
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: RocketAIHub is the Schema for the rocketaihubs API
-      displayName: Rocket AIHub
-      kind: RocketAIHub
-      name: rocketaihubs.operator.ibm.com
-      version: v1alpha1
-  description: This is the operator for Rocket AI Hub which provides AI and machine
-    learning (ML) capabilities optimized for IBM Power systems.
+      - description: RocketAIHub is the Schema for the rocketaihubs API
+        displayName: Rocket AIHub
+        kind: RocketAIHub
+        name: rocketaihubs.operator.ibm.com
+        version: v1alpha1
+  description: This is the operator for Rocket AI Hub which provides AI and machine learning (ML) capabilities optimized for IBM Power systems.
   displayName: Rocket AI Hub operator
   icon:
-  - base64data: ""
-    mediatype: ""
+    - base64data: ""
+      mediatype: ""
   install:
     spec:
       clusterPermissions:
-      - rules:
-        - apiGroups:
-          - operator.ibm.com
-          resources:
-          - rocketaihubs
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - operator.ibm.com
-          resources:
-          - rocketaihubs/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - operator.ibm.com
-          resources:
-          - rocketaihubs/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - authentication.k8s.io
-          resources:
-          - tokenreviews
-          verbs:
-          - create
-        - apiGroups:
-          - authorization.k8s.io
-          resources:
-          - subjectaccessreviews
-          verbs:
-          - create
-        serviceAccountName: rocketaihub-operator-controller-manager
+        - rules:
+            - apiGroups:
+                - operator.ibm.com
+              resources:
+                - rocketaihubs
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - operator.ibm.com
+              resources:
+                - rocketaihubs/finalizers
+              verbs:
+                - update
+            - apiGroups:
+                - operator.ibm.com
+              resources:
+                - rocketaihubs/status
+              verbs:
+                - get
+                - patch
+                - update
+            - apiGroups:
+                - authentication.k8s.io
+              resources:
+                - tokenreviews
+              verbs:
+                - create
+            - apiGroups:
+                - authorization.k8s.io
+              resources:
+                - subjectaccessreviews
+              verbs:
+                - create
+          serviceAccountName: rocketaihub-operator-controller-manager
       deployments:
-      - label:
-          app.kubernetes.io/managed-by: kustomize
-          app.kubernetes.io/name: rocketaihub-operator
-          control-plane: controller-manager
-        name: rocketaihub-operator-controller-manager
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              control-plane: controller-manager
-          strategy: {}
-          template:
-            metadata:
-              annotations:
-                kubectl.kubernetes.io/default-container: manager
-              labels:
+        - label:
+            app.kubernetes.io/managed-by: kustomize
+            app.kubernetes.io/name: rocketaihub-operator
+            control-plane: controller-manager
+          name: rocketaihub-operator-controller-manager
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
                 control-plane: controller-manager
-            spec:
-              containers:
-              - args:
-                - --secure-listen-address=0.0.0.0:8443
-                - --upstream=http://127.0.0.1:8080/
-                - --logtostderr=true
-                - --v=0
-                image: gcr.io/kubebuilder/kube-rbac-proxy:v0.16.0
-                name: kube-rbac-proxy
-                ports:
-                - containerPort: 8443
-                  name: https
-                  protocol: TCP
-                resources:
-                  limits:
-                    cpu: 500m
-                    memory: 128Mi
-                  requests:
-                    cpu: 5m
-                    memory: 64Mi
+            strategy: {}
+            template:
+              metadata:
+                annotations:
+                  kubectl.kubernetes.io/default-container: manager
+                labels:
+                  control-plane: controller-manager
+              spec:
+                containers:
+                  - args:
+                      - --secure-listen-address=0.0.0.0:8443
+                      - --upstream=http://127.0.0.1:8080/
+                      - --logtostderr=true
+                      - --v=0
+                    image: gcr.io/kubebuilder/kube-rbac-proxy:v0.16.0
+                    name: kube-rbac-proxy
+                    ports:
+                      - containerPort: 8443
+                        name: https
+                        protocol: TCP
+                    resources:
+                      limits:
+                        cpu: 500m
+                        memory: 128Mi
+                      requests:
+                        cpu: 5m
+                        memory: 64Mi
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      capabilities:
+                        drop:
+                          - ALL
+                  - args:
+                      - --health-probe-bind-address=:8081
+                      - --metrics-bind-address=127.0.0.1:8080
+                      - --leader-elect
+                    command:
+                      - /manager
+                    image: quay.io/williamxiang/rocketaihub-operator:v0.0.1
+                    livenessProbe:
+                      httpGet:
+                        path: /healthz
+                        port: 8081
+                      initialDelaySeconds: 15
+                      periodSeconds: 20
+                    name: manager
+                    readinessProbe:
+                      httpGet:
+                        path: /readyz
+                        port: 8081
+                      initialDelaySeconds: 5
+                      periodSeconds: 10
+                    resources:
+                      limits:
+                        cpu: 500m
+                        memory: 128Mi
+                      requests:
+                        cpu: 10m
+                        memory: 64Mi
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      capabilities:
+                        drop:
+                          - ALL
                 securityContext:
-                  allowPrivilegeEscalation: false
-                  capabilities:
-                    drop:
-                    - ALL
-              - args:
-                - --health-probe-bind-address=:8081
-                - --metrics-bind-address=127.0.0.1:8080
-                - --leader-elect
-                command:
-                - /manager
-                image: quay.io/williamxiang/rocketaihub-operator:v0.0.1
-                livenessProbe:
-                  httpGet:
-                    path: /healthz
-                    port: 8081
-                  initialDelaySeconds: 15
-                  periodSeconds: 20
-                name: manager
-                readinessProbe:
-                  httpGet:
-                    path: /readyz
-                    port: 8081
-                  initialDelaySeconds: 5
-                  periodSeconds: 10
-                resources:
-                  limits:
-                    cpu: 500m
-                    memory: 128Mi
-                  requests:
-                    cpu: 10m
-                    memory: 64Mi
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  capabilities:
-                    drop:
-                    - ALL
-              securityContext:
-                runAsNonRoot: true
-              serviceAccountName: rocketaihub-operator-controller-manager
-              terminationGracePeriodSeconds: 10
+                  runAsNonRoot: true
+                serviceAccountName: rocketaihub-operator-controller-manager
+                terminationGracePeriodSeconds: 10
       permissions:
-      - rules:
-        - apiGroups:
-          - ""
-          resources:
-          - configmaps
-          verbs:
-          - get
-          - list
-          - watch
-          - create
-          - update
-          - patch
-          - delete
-        - apiGroups:
-          - coordination.k8s.io
-          resources:
-          - leases
-          verbs:
-          - get
-          - list
-          - watch
-          - create
-          - update
-          - patch
-          - delete
-        - apiGroups:
-          - ""
-          resources:
-          - events
-          verbs:
-          - create
-          - patch
-        serviceAccountName: rocketaihub-operator-controller-manager
+        - rules:
+            - apiGroups:
+                - ""
+              resources:
+                - configmaps
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - coordination.k8s.io
+              resources:
+                - leases
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - ""
+              resources:
+                - events
+              verbs:
+                - create
+                - patch
+          serviceAccountName: rocketaihub-operator-controller-manager
     strategy: deployment
   installModes:
-  - supported: false
-    type: OwnNamespace
-  - supported: false
-    type: SingleNamespace
-  - supported: false
-    type: MultiNamespace
-  - supported: true
-    type: AllNamespaces
+    - supported: false
+      type: OwnNamespace
+    - supported: false
+      type: SingleNamespace
+    - supported: false
+      type: MultiNamespace
+    - supported: true
+      type: AllNamespaces
   keywords:
-  - AI
-  - ML
+    - AI
+    - ML
   links:
-  - name: Rocketaihub Operator
-    url: https://rocketaihub-operator.domain
+    - name: Rocketaihub Operator
+      url: https://rocketaihub-operator.domain
   maturity: alpha
   provider:
     name: IBM

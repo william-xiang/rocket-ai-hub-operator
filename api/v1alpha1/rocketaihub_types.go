@@ -62,8 +62,7 @@ type Component struct {
 
 // RocketAIHubStatus defines the observed state of RocketAIHub
 type RocketAIHubStatus struct {
-	Type    ConditionType `json:"condition"`
-	Message string        `json:"message,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -78,14 +77,6 @@ type RocketAIHub struct {
 	Spec   RocketAIHubSpec   `json:"spec,omitempty"`
 	Status RocketAIHubStatus `json:"status,omitempty"`
 }
-
-type ConditionType string
-
-const (
-	Available ConditionType = "Available"
-	Degraded  ConditionType = "Degraded"
-	Pending   ConditionType = "Pending"
-)
 
 //+kubebuilder:object:root=true
 

@@ -28,7 +28,6 @@ import (
 	logr "sigs.k8s.io/controller-runtime/pkg/log"
 
 	rocketaihubv1alpha1 "github.com/IBM/rocketaihub-operator/api/v1alpha1"
-	"github.com/IBM/rocketaihub-operator/pkg/components"
 )
 
 // RocketAIHubReconciler reconciles a RocketAIHub object
@@ -72,7 +71,7 @@ func (r *RocketAIHubReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	} else {
 		if controllerutil.ContainsFinalizer(rocketaihub, finalizer) {
 			// Cleanup the resources
-			if err := components.Uninstall(ctx, r.Client); err != nil {
+			if err := r.Uninstall(ctx, r.Client); err != nil {
 				return ctrl.Result{}, err
 			}
 
@@ -85,7 +84,7 @@ func (r *RocketAIHubReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	if err := components.Install(ctx, r.Client); err != nil {
+	if err := r.Install(ctx, r.Client, rocketaihub); err != nil {
 		return ctrl.Result{}, err
 	}
 

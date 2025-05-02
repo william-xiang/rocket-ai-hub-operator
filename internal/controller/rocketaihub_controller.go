@@ -19,12 +19,16 @@ package controller
 import (
 	"context"
 
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	logr "sigs.k8s.io/controller-runtime/pkg/log"
 
-	operatorv1alpha1 "github.com/IBM/rocketaihub-operator/api/v1alpha1"
+	rocketaihubv1alpha1 "github.com/IBM/rocketaihub-operator/api/v1alpha1"
+	"github.com/IBM/rocketaihub-operator/pkg/components"
 )
 
 // RocketAIHubReconciler reconciles a RocketAIHub object
@@ -33,23 +37,57 @@ type RocketAIHubReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+const finalizer = "rocketaihub.operator.ibm.com/finalizer"
+
 //+kubebuilder:rbac:groups=operator.ibm.com,resources=rocketaihubs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=operator.ibm.com,resources=rocketaihubs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=operator.ibm.com,resources=rocketaihubs/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the RocketAIHub object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
+// move the current state of the cluster closer to the desired state for RocketAIHub instance
 func (r *RocketAIHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := logr.FromContext(ctx).WithName("RocketAIHub Controller")
+	log.Info("Reconciling RocketAIHub instance.")
 
-	// TODO(user): your logic here
+	// Get the RocketAIHub instance
+	rocketaihub := &rocketaihubv1alpha1.RocketAIHub{}
+	if err := r.Get(ctx, req.NamespacedName, rocketaihub); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("RocketAIHub instance not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
+		// Error reading the object, requeque the request.
+		log.Error(err, "Failed to get RocketAIHub instance")
+		return ctrl.Result{}, err
+	}
+
+	if rocketaihub.ObjectMeta.DeletionTimestamp.IsZero() {
+		// Add the finalizer for resources cleanup before deleting the CR
+		if !controllerutil.ContainsFinalizer(rocketaihub, finalizer) {
+			controllerutil.AddFinalizer(rocketaihub, finalizer)
+			if err := r.Update(ctx, rocketaihub); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		if controllerutil.ContainsFinalizer(rocketaihub, finalizer) {
+			// Cleanup the resources
+			if err := components.Uninstall(ctx, r.Client); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			// Remove the finalizer after the resources cleanup
+			controllerutil.RemoveFinalizer(rocketaihub, finalizer)
+			if err := r.Update(ctx, rocketaihub); err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		}
+	}
+
+	if err := components.Install(ctx, r.Client); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -57,6 +95,7 @@ func (r *RocketAIHubReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 // SetupWithManager sets up the controller with the Manager.
 func (r *RocketAIHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&operatorv1alpha1.RocketAIHub{}).
+		For(&rocketaihubv1alpha1.RocketAIHub{}).
+		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }

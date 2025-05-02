@@ -25,3 +25,6 @@ go.work
 *.swp
 *.swo
 *~
+
+# The __debug_bin file for debugging
+**/__debug_bin*

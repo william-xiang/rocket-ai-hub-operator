@@ -8,7 +8,7 @@ import (
 	rocketaihubv1alpha1 "github.com/IBM/rocketaihub-operator/api/v1alpha1"
 	"github.com/IBM/rocketaihub-operator/pkg/resources"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrl "sigs.k8s.io/controller-runtime"
 	logr "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -17,15 +17,22 @@ var (
 )
 
 // Install all the components
-func (r *RocketAIHubReconciler) Install(ctx context.Context, client client.Client, obj *rocketaihubv1alpha1.RocketAIHub) error {
+func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) error {
 	log := logr.FromContext(ctx).WithName("RocketAIHub Controller")
 
-	manifestPath := filepath.Join(ManifestRootPath, "deployment")
-	if err := resources.CreateResources(ctx, client, manifestPath); err != nil {
+	manifestPath := filepath.Join(ManifestRootPath, "servicemesh")
+	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
 		return err
 	}
 
 	// Update status of the CR
+	rocketaihub := &rocketaihubv1alpha1.RocketAIHub{}
+	if err := r.Get(ctx, req.NamespacedName, rocketaihub); err != nil {
+		// Error reading the object, requeque the request.
+		log.Error(err, "Failed to get RocketAIHub instance")
+		return err
+	}
+
 	condition := metav1.Condition{
 		Type:               "Progressing",
 		Status:             metav1.ConditionTrue,
@@ -34,9 +41,9 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, client client.Clien
 		Message:            "message",
 	}
 
-	if !contains(obj.Status.Conditions, condition) {
-		obj.Status.Conditions = append(obj.Status.Conditions, condition)
-		if err := r.Status().Update(ctx, obj); err != nil {
+	if !contains(rocketaihub.Status.Conditions, condition) {
+		rocketaihub.Status.Conditions = append(rocketaihub.Status.Conditions, condition)
+		if err := r.Status().Update(ctx, rocketaihub); err != nil {
 			log.Error(err, "Resource status update failed.")
 		}
 	}
@@ -45,9 +52,9 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, client client.Clien
 }
 
 // Uninstall the components
-func (r *RocketAIHubReconciler) Uninstall(ctx context.Context, client client.Client) error {
-	manifestPath := filepath.Join(ManifestRootPath, "deployment")
-	return resources.DeleteResources(ctx, client, manifestPath)
+func (r *RocketAIHubReconciler) Uninstall(ctx context.Context) error {
+	manifestPath := filepath.Join(ManifestRootPath, "servicemesh")
+	return resources.DeleteResources(ctx, r.Client, manifestPath)
 }
 
 // Check if the condition already exists in the conditions of the CR

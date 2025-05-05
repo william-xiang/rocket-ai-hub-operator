@@ -71,7 +71,7 @@ func (r *RocketAIHubReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	} else {
 		if controllerutil.ContainsFinalizer(rocketaihub, finalizer) {
 			// Cleanup the resources
-			if err := r.Uninstall(ctx, r.Client); err != nil {
+			if err := r.Uninstall(ctx); err != nil {
 				return ctrl.Result{}, err
 			}
 
@@ -84,7 +84,7 @@ func (r *RocketAIHubReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	if err := r.Install(ctx, r.Client, rocketaihub); err != nil {
+	if err := r.Install(ctx, req); err != nil {
 		return ctrl.Result{}, err
 	}
 

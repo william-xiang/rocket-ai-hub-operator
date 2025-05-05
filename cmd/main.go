@@ -36,7 +36,9 @@ import (
 
 	operatorv1alpha1 "github.com/IBM/rocketaihub-operator/api/v1alpha1"
 	"github.com/IBM/rocketaihub-operator/internal/controller"
+
 	//+kubebuilder:scaffold:imports
+	configv1 "github.com/openshift/api/config/v1"
 )
 
 var (
@@ -49,6 +51,7 @@ func init() {
 
 	utilruntime.Must(operatorv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
+	utilruntime.Must(configv1.AddToScheme(scheme))
 }
 
 func main() {

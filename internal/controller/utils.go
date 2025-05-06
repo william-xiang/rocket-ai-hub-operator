@@ -52,10 +52,17 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		}
 	}
 
-	// manifestPath := filepath.Join(manifestRootPath, "servicemesh")
-	// if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
-	// 	return err
-	// }
+	// Install operators Service Mesh (incl. Elasticsearch, Kiali, Jaeger), Namespace-Configuration, Serverless, Node Feature Discovery, GPU Operator, and Grafana
+	manifestPath := filepath.Join(manifestRootPath, "subscriptions")
+	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
+		return err
+	}
+
+	// Configure node feature discovery
+	manifestPath = filepath.Join(manifestRootPath, "nfd")
+	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
+		return err
+	}
 
 	return nil
 }

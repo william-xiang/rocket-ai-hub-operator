@@ -2,30 +2,66 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	rocketaihubv1alpha1 "github.com/IBM/rocketaihub-operator/api/v1alpha1"
 	"github.com/IBM/rocketaihub-operator/pkg/resources"
+	helmclient "github.com/mittwald/go-helm-client"
+	"github.com/mittwald/go-helm-client/values"
+	"helm.sh/helm/v3/pkg/repo"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logr "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
-	ManifestRootPath = os.Getenv("MANIFEST_ROOT_PATH")
+	manifestRootPath   = os.Getenv("MANIFEST_ROOT_PATH")
+	certManagerVersion = os.Getenv("CERT_MANAGER_VERSION")
+	loggerName         = "RocketAIHub Controller"
+	valueOptions       = values.Options{Values: []string{"installCRDs=true"}}
 )
 
 // Install all the components
 func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) error {
-	log := logr.FromContext(ctx).WithName("RocketAIHub Controller")
+	// Install Cert Manager operator using helm, then update the satus of CR
+	operatorName := "Cert Manager Operator"
+	releaseName := "cert-manager"
+	repoName := "jetstack"
+	repoURL := "https://charts.jetstack.io"
+	// Variables for CR status condition
+	conditionType := "CertManagerIsReady"
+	conditionStatus := metav1.ConditionTrue
+	conditionReason := "InstallSuccessful"
+	conditionMessage := fmt.Sprintf("Installation of %s %s is successful", operatorName, certManagerVersion)
+	err := installHelmChart(ctx, operatorName, repoName, repoURL, releaseName, certManagerVersion, valueOptions)
+	if err != nil {
+		conditionStatus = metav1.ConditionFalse
+		conditionReason = "InstallUnsuccessful"
+		conditionMessage = err.Error()
+		if err := r.updateStatus(ctx, req, conditionType, conditionStatus, conditionReason, conditionMessage); err != nil {
+			return err
+		}
 
-	manifestPath := filepath.Join(ManifestRootPath, "servicemesh")
-	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
 		return err
+	} else {
+		if err := r.updateStatus(ctx, req, conditionType, conditionStatus, conditionReason, conditionMessage); err != nil {
+			return err
+		}
 	}
 
-	// Update status of the CR
+	// manifestPath := filepath.Join(manifestRootPath, "servicemesh")
+	// if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
+	// 	return err
+	// }
+
+	return nil
+}
+
+func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Request, condType string, condStatus metav1.ConditionStatus, condReason, condMessage string) error {
+	log := logr.FromContext(ctx).WithName(loggerName)
 	rocketaihub := &rocketaihubv1alpha1.RocketAIHub{}
 	if err := r.Get(ctx, req.NamespacedName, rocketaihub); err != nil {
 		// Error reading the object, requeque the request.
@@ -34,11 +70,11 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	}
 
 	condition := metav1.Condition{
-		Type:               "Progressing",
-		Status:             metav1.ConditionTrue,
+		Type:               condType,
+		Status:             condStatus,
 		LastTransitionTime: metav1.Now(),
-		Reason:             "reason",
-		Message:            "message",
+		Reason:             condReason,
+		Message:            condMessage,
 	}
 
 	if !contains(rocketaihub.Status.Conditions, condition) {
@@ -51,9 +87,60 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	return nil
 }
 
+func installHelmChart(ctx context.Context, operatorName string, repoName string, repoURL string, releaseName string, version string, valueOptions values.Options) error {
+	log := logr.FromContext(ctx).WithName(loggerName)
+	log.Info(fmt.Sprintf("Starting the installation of %s %s", operatorName, version))
+
+	chartName := repoName + "/" + releaseName
+	opt := &helmclient.Options{
+		Namespace:        releaseName,
+		RepositoryCache:  "/tmp/.helmcache",
+		RepositoryConfig: "/tmp/.helmrepo",
+		Linting:          true,
+	}
+	helmClient, err := helmclient.New(opt)
+	if err != nil {
+		return err
+	}
+
+	// Check if the chart is already installed
+	release, err := helmClient.GetRelease(releaseName)
+	if err != nil && errors.IsNotFound(err) {
+		log.Error(err, "Failed to get release "+releaseName)
+		return err
+	} else if release == nil || release.Chart.Metadata.Version != version {
+		// Add the helm repo
+		chartRepo := repo.Entry{
+			Name: repoName,
+			URL:  repoURL,
+		}
+		if err := helmClient.AddOrUpdateChartRepo(chartRepo); err != nil {
+			log.Error(err, "Failed to add or update char repo with URL "+repoURL)
+			return err
+		}
+		// Install the helm chart
+		chartSpec := helmclient.ChartSpec{
+			ReleaseName:     releaseName,
+			ChartName:       chartName,
+			Namespace:       releaseName,
+			Version:         version,
+			CreateNamespace: true,
+			SkipCRDs:        false,
+			UpgradeCRDs:     true,
+			ValuesOptions:   valueOptions,
+		}
+		if _, err := helmClient.InstallOrUpgradeChart(ctx, &chartSpec, nil); err != nil {
+			log.Error(err, fmt.Sprintf("Failed to install %s %s ", operatorName, version))
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Uninstall the components
 func (r *RocketAIHubReconciler) Uninstall(ctx context.Context) error {
-	manifestPath := filepath.Join(ManifestRootPath, "servicemesh")
+	manifestPath := filepath.Join(manifestRootPath, "servicemesh")
 	return resources.DeleteResources(ctx, r.Client, manifestPath)
 }
 

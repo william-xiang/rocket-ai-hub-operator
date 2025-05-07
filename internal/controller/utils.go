@@ -18,10 +18,14 @@ import (
 )
 
 var (
-	manifestRootPath   = os.Getenv("MANIFEST_ROOT_PATH")
-	certManagerVersion = os.Getenv("CERT_MANAGER_VERSION")
-	loggerName         = "RocketAIHub Controller"
-	valueOptions       = values.Options{Values: []string{"installCRDs=true"}}
+	manifestRootPath           = os.Getenv("MANIFEST_ROOT_PATH")
+	certManagerVersion         = os.Getenv("CERT_MANAGER_VERSION")
+	loggerName                 = "RocketAIHub Controller"
+	valueOptions               = values.Options{Values: []string{"installCRDs=true"}}
+	certManagerIsReady         = "CertManagerIsReady"
+	dependentOperatorsAreReady = "DependentOperatorsAreReady"
+	installSuccessful          = "InstallSuccessful"
+	installUnuccessful         = "InstallUnsuccessful"
 )
 
 // Install all the components
@@ -73,6 +77,11 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	// Configure service mesh
 	manifestPath = filepath.Join(manifestRootPath, "servicemesh")
 	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
+		return err
+	}
+
+	// Deploy Kubeflow
+	if err := resources.CreateResources(ctx, r.Client, manifestRootPath); err != nil {
 		return err
 	}
 

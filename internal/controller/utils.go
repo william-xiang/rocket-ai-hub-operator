@@ -64,6 +64,18 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		return err
 	}
 
+	// Configure grafana
+	manifestPath = filepath.Join(manifestRootPath, "grafana")
+	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
+		return err
+	}
+
+	// Configure service mesh
+	manifestPath = filepath.Join(manifestRootPath, "servicemesh")
+	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
+		return err
+	}
+
 	return nil
 }
 

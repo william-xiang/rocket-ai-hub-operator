@@ -5,27 +5,37 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	rocketaihubv1alpha1 "github.com/IBM/rocketaihub-operator/api/v1alpha1"
 	"github.com/IBM/rocketaihub-operator/pkg/resources"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/mittwald/go-helm-client/values"
 	"helm.sh/helm/v3/pkg/repo"
+	appsv1 "k8s.io/api/apps/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logr "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
 	manifestRootPath           = os.Getenv("MANIFEST_ROOT_PATH")
 	certManagerVersion         = os.Getenv("CERT_MANAGER_VERSION")
-	loggerName                 = "RocketAIHub Controller"
 	valueOptions               = values.Options{Values: []string{"installCRDs=true"}}
 	certManagerIsReady         = "CertManagerIsReady"
 	dependentOperatorsAreReady = "DependentOperatorsAreReady"
+	servicemeshIsReady         = "ServiceMeshIsReady"
+	kubeflowIsReady            = "KubeflowIsReady"
 	installSuccessful          = "InstallSuccessful"
 	installUnuccessful         = "InstallUnsuccessful"
+	logger                     = logr.Log.WithName("RocketAIHub Controller")
+	retryInterval              = 30 * time.Second
+	timeout                    = 600 * time.Second
 )
 
 // Install all the components
@@ -35,34 +45,45 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	releaseName := "cert-manager"
 	repoName := "jetstack"
 	repoURL := "https://charts.jetstack.io"
-	// Variables for CR status condition
-	conditionType := "CertManagerIsReady"
-	conditionStatus := metav1.ConditionTrue
-	conditionReason := "InstallSuccessful"
 	conditionMessage := fmt.Sprintf("Installation of %s %s is successful", operatorName, certManagerVersion)
 	err := installHelmChart(ctx, operatorName, repoName, repoURL, releaseName, certManagerVersion, valueOptions)
 	if err != nil {
-		conditionStatus = metav1.ConditionFalse
-		conditionReason = "InstallUnsuccessful"
 		conditionMessage = err.Error()
-		if err := r.updateStatus(ctx, req, conditionType, conditionStatus, conditionReason, conditionMessage); err != nil {
+		if err := r.updateStatus(ctx, req, certManagerIsReady, metav1.ConditionFalse, installUnuccessful, conditionMessage); err != nil {
 			return err
 		}
 
 		return err
 	} else {
-		if err := r.updateStatus(ctx, req, conditionType, conditionStatus, conditionReason, conditionMessage); err != nil {
+		if err := r.updateStatus(ctx, req, certManagerIsReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
 			return err
 		}
 	}
 
 	// Install operators Service Mesh (incl. Elasticsearch, Kiali, Jaeger), Namespace-Configuration, Serverless, Node Feature Discovery, GPU Operator, and Grafana
 	manifestPath := filepath.Join(manifestRootPath, "subscriptions")
-	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
+	conditionMessage = "Installation of dependent operators is successful"
+	err = resources.CreateResources(ctx, r.Client, manifestPath)
+	if err != nil {
+		conditionMessage = err.Error()
+		if err := r.updateStatus(ctx, req, dependentOperatorsAreReady, metav1.ConditionFalse, installUnuccessful, conditionMessage); err != nil {
+			return err
+		}
+
 		return err
+	} else {
+		if err := r.updateStatus(ctx, req, dependentOperatorsAreReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
+			return err
+		}
 	}
 
 	// Configure node feature discovery
+	// Wait for the CRD NodeFeatureDiscovery is installed
+	namespacedName := types.NamespacedName{Name: "nodefeaturediscoveries.nfd.openshift.io"}
+	err = r.waitForObject(ctx, &apiextv1.CustomResourceDefinition{}, namespacedName, retryInterval, timeout)
+	if err != nil {
+		return err
+	}
 	manifestPath = filepath.Join(manifestRootPath, "nfd")
 	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
 		return err
@@ -75,25 +96,71 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	}
 
 	// Configure service mesh
+	// Wait for deployment istio-operator is ready
+	namespacedName = types.NamespacedName{
+		Name:      "istio-operator",
+		Namespace: "openshift-operators",
+	}
+	err = r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout)
+	if err != nil {
+		return err
+	}
 	manifestPath = filepath.Join(manifestRootPath, "servicemesh")
 	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
 		return err
+	}
+	// Wait for deployment istiod-kubeflow is ready
+	namespacedName = types.NamespacedName{
+		Name:      "istiod-kubeflow",
+		Namespace: "istio-system",
+	}
+	err = r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout)
+	conditionMessage = "Service mesh is configured successfully"
+	if err != nil {
+		conditionMessage = err.Error()
+		if err := r.updateStatus(ctx, req, servicemeshIsReady, metav1.ConditionFalse, installUnuccessful, conditionMessage); err != nil {
+			return err
+		}
+
+		return err
+	} else {
+		if err := r.updateStatus(ctx, req, servicemeshIsReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
+			return err
+		}
 	}
 
 	// Deploy Kubeflow
 	if err := resources.CreateResources(ctx, r.Client, manifestRootPath); err != nil {
 		return err
 	}
+	// Wait for deployment centraldashboard is ready
+	namespacedName = types.NamespacedName{
+		Name:      "centraldashboard",
+		Namespace: "kubeflow",
+	}
+	err = r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout)
+	conditionMessage = "Installation of Kubeflow is successful"
+	if err != nil {
+		conditionMessage = err.Error()
+		if err := r.updateStatus(ctx, req, kubeflowIsReady, metav1.ConditionFalse, installUnuccessful, conditionMessage); err != nil {
+			return err
+		}
+
+		return err
+	} else {
+		if err := r.updateStatus(ctx, req, kubeflowIsReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
 
 func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Request, condType string, condStatus metav1.ConditionStatus, condReason, condMessage string) error {
-	log := logr.FromContext(ctx).WithName(loggerName)
 	rocketaihub := &rocketaihubv1alpha1.RocketAIHub{}
 	if err := r.Get(ctx, req.NamespacedName, rocketaihub); err != nil {
 		// Error reading the object, requeque the request.
-		log.Error(err, "Failed to get RocketAIHub instance")
+		logger.Error(err, "Failed to get RocketAIHub instance")
 		return err
 	}
 
@@ -108,7 +175,7 @@ func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Reque
 	if !contains(rocketaihub.Status.Conditions, condition) {
 		rocketaihub.Status.Conditions = append(rocketaihub.Status.Conditions, condition)
 		if err := r.Status().Update(ctx, rocketaihub); err != nil {
-			log.Error(err, "Resource status update failed.")
+			logger.Error(err, "Resource status update failed.")
 		}
 	}
 
@@ -116,9 +183,6 @@ func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Reque
 }
 
 func installHelmChart(ctx context.Context, operatorName string, repoName string, repoURL string, releaseName string, version string, valueOptions values.Options) error {
-	log := logr.FromContext(ctx).WithName(loggerName)
-	log.Info(fmt.Sprintf("Starting the installation of %s %s", operatorName, version))
-
 	chartName := repoName + "/" + releaseName
 	opt := &helmclient.Options{
 		Namespace:        releaseName,
@@ -134,16 +198,17 @@ func installHelmChart(ctx context.Context, operatorName string, repoName string,
 	// Check if the chart is already installed
 	release, err := helmClient.GetRelease(releaseName)
 	if err != nil && errors.IsNotFound(err) {
-		log.Error(err, "Failed to get release "+releaseName)
+		logger.Error(err, "Failed to get release "+releaseName)
 		return err
 	} else if release == nil || release.Chart.Metadata.Version != version {
+		logger.Info(fmt.Sprintf("Starting the installation of %s %s", operatorName, version))
 		// Add the helm repo
 		chartRepo := repo.Entry{
 			Name: repoName,
 			URL:  repoURL,
 		}
 		if err := helmClient.AddOrUpdateChartRepo(chartRepo); err != nil {
-			log.Error(err, "Failed to add or update char repo with URL "+repoURL)
+			logger.Error(err, "Failed to add or update char repo with URL "+repoURL)
 			return err
 		}
 		// Install the helm chart
@@ -158,7 +223,7 @@ func installHelmChart(ctx context.Context, operatorName string, repoName string,
 			ValuesOptions:   valueOptions,
 		}
 		if _, err := helmClient.InstallOrUpgradeChart(ctx, &chartSpec, nil); err != nil {
-			log.Error(err, fmt.Sprintf("Failed to install %s %s ", operatorName, version))
+			logger.Error(err, fmt.Sprintf("Failed to install %s %s ", operatorName, version))
 			return err
 		}
 	}
@@ -181,4 +246,34 @@ func contains(conditions []metav1.Condition, condition metav1.Condition) bool {
 	}
 
 	return false
+}
+
+func (r *RocketAIHubReconciler) waitForObject(ctx context.Context, obj client.Object, namespacedName types.NamespacedName, retryInterval, timeout time.Duration) error {
+	kind := fmt.Sprintf("%T", obj)
+	err := wait.PollUntilContextTimeout(ctx, retryInterval, timeout, true, func(ctx context.Context) (done bool, err error) {
+		if err := r.Client.Get(ctx, namespacedName, obj); err != nil {
+			if errors.IsNotFound(err) {
+				logger.Info(fmt.Sprintf("Wait for %s %s", kind, namespacedName.Name))
+				return false, nil
+			}
+
+			logger.Error(err, fmt.Sprintf("Failed to get %s %s", kind, namespacedName.Name))
+			return false, err
+		}
+		// If the object is a Deployment, the number of replicas in status should match the number in spec
+		switch v := obj.(type) {
+		case *appsv1.Deployment:
+			if v.Status.Replicas < *v.Spec.Replicas {
+				logger.Info(fmt.Sprintf("Wait for %s %s to be ready", kind, namespacedName.Name))
+				return false, nil
+			}
+		}
+		logger.Info(fmt.Sprintf("%s %s is Ready", kind, namespacedName.Name))
+		return true, nil
+	})
+	if err != nil {
+		logger.Error(err, fmt.Sprintf("Failed to wait for %s %s", kind, namespacedName.Name))
+		return err
+	}
+	return nil
 }

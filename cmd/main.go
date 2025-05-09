@@ -39,6 +39,7 @@ import (
 
 	//+kubebuilder:scaffold:imports
 	configv1 "github.com/openshift/api/config/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 var (
@@ -52,6 +53,7 @@ func init() {
 	utilruntime.Must(operatorv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 	utilruntime.Must(configv1.AddToScheme(scheme))
+	utilruntime.Must(apiextv1.AddToScheme(scheme))
 }
 
 func main() {

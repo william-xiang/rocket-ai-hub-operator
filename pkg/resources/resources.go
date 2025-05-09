@@ -17,6 +17,8 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
+var logger = logr.Log.WithName("RocketAIHub Controller")
+
 // Substitutes the values of environment variables in the manifests
 func substituteEnv(ctx context.Context, client client.Client, yaml string) (string, error) {
 	// Substitue the value of environment variable CLUSTER_DOMAIN for servicemesh
@@ -85,13 +87,12 @@ func CreateResources(ctx context.Context, client client.Client, manifestPath str
 }
 
 func createResource(ctx context.Context, client client.Client, ressource *resource.Resource) error {
-	log := logr.FromContext(ctx)
 	unstructured, err := getUnstructuredObj(ctx, client, ressource)
 	if err != nil {
 		return err
 	}
 
-	log.Info("Creating resource", "Resource", unstructured)
+	logger.Info("Creating resource", "Kind", unstructured.GetKind(), "Name", unstructured.GetName(), "Namespace", unstructured.GetNamespace())
 	if err := client.Create(ctx, unstructured); err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
@@ -117,14 +118,12 @@ func DeleteResources(ctx context.Context, client client.Client, manifestPath str
 }
 
 func deleteResource(ctx context.Context, client client.Client, resource *resource.Resource) error {
-	log := logr.FromContext(ctx)
 	unstructured, err := getUnstructuredObj(ctx, client, resource)
 	if err != nil {
 		return err
 	}
 
-	log.Info("Deleting resource", "Resource", unstructured)
-
+	logger.Info("Deleting resource", "Kind", unstructured.GetKind(), "Name", unstructured.GetName(), "Namespace", unstructured.GetNamespace())
 	if err := client.Delete(ctx, unstructured); err != nil && !errors.IsNotFound(err) {
 		return err
 	}

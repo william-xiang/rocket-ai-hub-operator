@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -28,8 +27,8 @@ import (
 )
 
 var (
-	manifestRootPath           = os.Getenv("MANIFEST_ROOT_PATH")
-	certManagerVersion         = os.Getenv("CERT_MANAGER_VERSION")
+	manifestRootPath           = "/manifests/overlays/openshift"
+	certManagerVersion         = "v1.5.4"
 	valueOptions               = values.Options{Values: []string{"installCRDs=true"}}
 	certManagerIsReady         = "CertManagerIsReady"
 	dependentOperatorsAreReady = "DependentOperatorsAreReady"

@@ -38,6 +38,7 @@ import (
 	"github.com/IBM/rocketaihub-operator/internal/controller"
 
 	//+kubebuilder:scaffold:imports
+	servingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	configv1 "github.com/openshift/api/config/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -54,6 +55,7 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 	utilruntime.Must(configv1.AddToScheme(scheme))
 	utilruntime.Must(apiextv1.AddToScheme(scheme))
+	utilruntime.Must(servingv1beta1.AddToScheme(scheme))
 }
 
 func main() {

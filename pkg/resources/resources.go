@@ -7,6 +7,7 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -124,7 +125,7 @@ func deleteResource(ctx context.Context, client client.Client, resource *resourc
 	}
 
 	logger.Info("Deleting resource", "Kind", unstructured.GetKind(), "Name", unstructured.GetName(), "Namespace", unstructured.GetNamespace())
-	if err := client.Delete(ctx, unstructured); err != nil && !errors.IsNotFound(err) {
+	if err := client.Delete(ctx, unstructured); err != nil && !errors.IsNotFound(err) && !meta.IsNoMatchError(err) {
 		return err
 	}
 

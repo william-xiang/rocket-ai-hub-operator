@@ -12,9 +12,13 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/mittwald/go-helm-client/values"
 	"helm.sh/helm/v3/pkg/repo"
+
+	servingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -153,6 +157,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		}
 	}
 
+	logger.Info("Instance of Rocket AI Hub operator is deployed successfully!")
 	return nil
 }
 
@@ -233,8 +238,44 @@ func installHelmChart(ctx context.Context, operatorName string, repoName string,
 
 // Uninstall the components
 func (r *RocketAIHubReconciler) Uninstall(ctx context.Context) error {
+	// Delete all the existing inference servcie instance
+	// Ignore the error that InferenceService kind cannot be found
+	inferenceServiceList := servingv1beta1.InferenceServiceList{}
+	if err := r.Client.List(ctx, &inferenceServiceList); err != nil && !meta.IsNoMatchError(err) {
+		return err
+	}
+	for _, infService := range inferenceServiceList.Items {
+		if err := r.Client.Delete(ctx, &infService); err != nil {
+			return err
+		}
+	}
+
+	// Delete validatingwebhookconfiguration validation.webhook.serving.knative.dev
+	webhook := admissionregistrationv1.ValidatingWebhookConfiguration{}
+	namespacedName := types.NamespacedName{Name: "validation.webhook.serving.knative.dev"}
+	if err := r.Client.Get(ctx, namespacedName, &webhook); err != nil {
+		if !errors.IsNotFound(err) {
+			return err
+		}
+	} else {
+		if err := r.Client.Delete(ctx, &webhook); err != nil {
+			return err
+		}
+	}
+
+	// Delete the kubeflow
+	// Deploy Kubeflow
+	if err := resources.DeleteResources(ctx, r.Client, manifestRootPath); err != nil {
+		return err
+	}
+	// Delete the service mesh configuration
 	manifestPath := filepath.Join(manifestRootPath, "servicemesh")
-	return resources.DeleteResources(ctx, r.Client, manifestPath)
+	if err := resources.DeleteResources(ctx, r.Client, manifestPath); err != nil {
+		return err
+	}
+
+	logger.Info("Instance of Rocket AI Hub operator is removed successfully!")
+	return nil
 }
 
 // Check if the condition already exists in the conditions of the CR

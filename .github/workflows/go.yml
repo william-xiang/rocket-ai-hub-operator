@@ -24,5 +24,6 @@ jobs:
     - name: Build
       run: make build
 
-    - name: Test
-      run: make test
+    # TODO: use existing OpenShift cluster for testing
+    # - name: Test
+    #   run: make test

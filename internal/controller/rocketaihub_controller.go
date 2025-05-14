@@ -41,6 +41,45 @@ const finalizer = "rocketaihub.operator.ibm.com/finalizer"
 //+kubebuilder:rbac:groups=operator.ibm.com,resources=rocketaihubs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=operator.ibm.com,resources=rocketaihubs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=operator.ibm.com,resources=rocketaihubs/finalizers,verbs=update
+//+kubebuilder:rbac:groups="apps",resources=deployments,verbs=*
+//+kubebuilder:rbac:groups="project.openshift.io",resources=projects,verbs=*
+//+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=*
+//+kubebuilder:rbac:groups="",resources=pods,verbs=*
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=*
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=*
+//+kubebuilder:rbac:groups="",resources=services,verbs=*
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=*
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=*
+//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=*
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=*
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=*
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=*
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=*
+//+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=mutatingwebhookconfigurations,verbs=*
+//+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=*
+//+kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=*
+//+kubebuilder:rbac:groups="operators.coreos.com",resources=operatorgroups,verbs=*
+//+kubebuilder:rbac:groups="nfd.openshift.io",resources=nodefeaturediscoveries,verbs=*
+//+kubebuilder:rbac:groups="maistra.io",resources=*,verbs=*
+//+kubebuilder:rbac:groups="config.openshift.io",resources=ingresses,verbs=*
+//+kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=*
+//+kubebuilder:rbac:groups="route.openshift.io",resources=routes/custom-host,verbs=*
+//+kubebuilder:rbac:groups="networking.istio.io",resources=*,verbs=*
+//+kubebuilder:rbac:groups="oauth.openshift.io",resources=oauthclients,verbs=*
+//+kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=*
+//+kubebuilder:rbac:groups="autoscaling",resources=horizontalpodautoscalers,verbs=*
+//+kubebuilder:rbac:groups="cert-manager.io",resources=*,verbs=*
+//+kubebuilder:rbac:groups="integreatly.org",resources=*,verbs=*
+//+kubebuilder:rbac:groups="kubeflow.org",resources=*,verbs=*
+//+kubebuilder:rbac:groups="metacontroller.k8s.io",resources=*,verbs=*
+//+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=*
+//+kubebuilder:rbac:groups="operator.knative.dev",resources=*,verbs=*
+//+kubebuilder:rbac:groups="redhatcop.redhat.io",resources=namespaceconfigs,verbs=*
+//+kubebuilder:rbac:groups="redhatcop.redhat.io",resources=userconfigs,verbs=*
+//+kubebuilder:rbac:groups="security.istio.io",resources=*,verbs=*
+//+kubebuilder:rbac:groups="scheduling.k8s.io",resources=priorityclasses,verbs=*
+//+kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=*
+//+kubebuilder:rbac:groups="serving.kserve.io",resources=*,verbs=*
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state for RocketAIHub instance

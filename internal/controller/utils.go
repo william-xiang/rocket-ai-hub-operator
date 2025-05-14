@@ -244,9 +244,15 @@ func installHelmChart(ctx context.Context, operatorName string, repoName string,
 // Uninstall the components
 func (r *RocketAIHubReconciler) Uninstall(ctx context.Context) error {
 	// Delete all the existing inference servcie instance
-	// Ignore the error that InferenceService kind cannot be found
+	// List function implicitly triggers a watch via the underlying informer cache, which will cause some issue after deleting the CRD InferenceService
+	// So change to use an uncached client to send the one-time request to the server
+	uncachedClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: r.Scheme})
+	if err != nil {
+		return err
+	}
 	inferenceServiceList := servingv1beta1.InferenceServiceList{}
-	if err := r.Client.List(ctx, &inferenceServiceList); err != nil && !meta.IsNoMatchError(err) {
+	// Ignore the error that InferenceService kind cannot be found
+	if err := uncachedClient.List(ctx, &inferenceServiceList); err != nil && !meta.IsNoMatchError(err) {
 		return err
 	}
 	for _, infService := range inferenceServiceList.Items {

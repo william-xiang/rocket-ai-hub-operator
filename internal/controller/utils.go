@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -43,6 +44,11 @@ var (
 
 // Install all the components
 func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) error {
+	// Change the path of manifests for debugging
+	if env := os.Getenv("MANIFEST_ROOT_PATH"); env != "" {
+		manifestRootPath = env
+	}
+
 	// Install Cert Manager operator using helm, then update the satus of CR
 	operatorName := "Cert Manager Operator"
 	releaseName := "cert-manager"

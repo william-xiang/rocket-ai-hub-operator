@@ -25,12 +25,15 @@ COPY pkg/ pkg/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o manager cmd/main.go
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+# Use alpine as minimal base image to package the manager binary
+FROM alpine:latest
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY --from=builder /workspace/manifests/ manifests/
+
+# Install git which is used by Krusty to load manifests from a Git URL
+RUN apk update && apk add git
+
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]

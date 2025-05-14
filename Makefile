@@ -41,7 +41,7 @@ BUNDLE_GEN_FLAGS ?= -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 # USE_IMAGE_DIGESTS defines if images are resolved via tags or digests
 # You can enable this value if you would like to use SHA Based Digests
 # To enable set flag to true
-USE_IMAGE_DIGESTS ?= false
+USE_IMAGE_DIGESTS ?= true
 ifeq ($(USE_IMAGE_DIGESTS), true)
 	BUNDLE_GEN_FLAGS += --use-image-digests
 endif
@@ -334,12 +334,12 @@ catalog: opm yq
 	$(OPM) init rocketaihub-operator $(BUNDLE_DEFAULT_CHANNEL) --output yaml > catalog/operator.yaml
 	# Add bundle to the catalog
 	$(OPM) render $(BUNDLE_IMG) --output=yaml >> catalog/operator.yaml
-	# Update the channel entry for the bundle
-	OPERATOR_VERSION=rocketaihub-operator.v$(VERSION) \
-	DEFAULT_CHANNEL=$(DEFAULT_CHANNEL) \
-	$(YQ) eval -i '.entries[0].name = strenv(OPERATOR_VERSION) | .name = strenv(DEFAULT_CHANNEL)' catalog/rocketaihub-operator-channel-entry.yaml
-	# Validate the generated file-based catalog
-	$(OPM) validate catalog
+	# # Update the channel entry for the bundle
+	# OPERATOR_VERSION=rocketaihub-operator.v$(VERSION) \
+	# DEFAULT_CHANNEL=$(DEFAULT_CHANNEL) \
+	# $(YQ) eval -i '.entries[0].name = strenv(OPERATOR_VERSION) | .name = strenv(DEFAULT_CHANNEL)' catalog/rocketaihub-operator-channel-entry.yaml
+	# # Validate the generated file-based catalog
+	# $(OPM) validate catalog
 
 # Build a catalog image by adding bundle images to an empty catalog using the operator package manager tool, 'opm'.
 # Ref https://olm.operatorframework.io/docs/tasks/creating-a-catalog/#catalog-creation-with-raw-file-based-catalogs

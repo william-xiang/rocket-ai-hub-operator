@@ -18,7 +18,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-05-14T05:25:46Z"
+    createdAt: "2025-05-14T20:57:57Z"
     operators.operatorframework.io/builder: operator-sdk-v1.39.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: rocketaihub-operator.v0.0.1
@@ -342,7 +342,7 @@ spec:
                       - --upstream=http://127.0.0.1:8080/
                       - --logtostderr=true
                       - --v=0
-                    image: gcr.io/kubebuilder/kube-rbac-proxy:v0.16.0
+                    image: gcr.io/kubebuilder/kube-rbac-proxy@sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea
                     name: kube-rbac-proxy
                     ports:
                       - containerPort: 8443
@@ -366,7 +366,7 @@ spec:
                       - --leader-elect
                     command:
                       - /manager
-                    image: quay.io/williamxiang/rocketaihub-operator:v0.0.1
+                    image: quay.io/williamxiang/rocketaihub-operator@sha256:0aa2a42919c2a5c9eac6e7f9ab3a643daa7dae39fddf13057ff647d0f91ffb76
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -446,4 +446,9 @@ spec:
   maturity: alpha
   provider:
     name: IBM
+  relatedImages:
+    - image: gcr.io/kubebuilder/kube-rbac-proxy@sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea
+      name: kube-rbac-proxy
+    - image: quay.io/williamxiang/rocketaihub-operator@sha256:0aa2a42919c2a5c9eac6e7f9ab3a643daa7dae39fddf13057ff647d0f91ffb76
+      name: manager
   version: 0.0.1

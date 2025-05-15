@@ -29,39 +29,55 @@ import (
 
 var (
 	manifestRootPath           = "/manifests/overlays/openshift"
-	certManagerVersion         = "v1.5.4"
+	gpuOperatorPath            = "/gpu-operator"
 	valueOptions               = values.Options{Values: []string{"installCRDs=true"}}
 	certManagerIsReady         = "CertManagerIsReady"
 	dependentOperatorsAreReady = "DependentOperatorsAreReady"
 	servicemeshIsReady         = "ServiceMeshIsReady"
 	kubeflowIsReady            = "KubeflowIsReady"
+	gpuOperatorIsReady         = "GpuOperatorIsReady"
 	installSuccessful          = "InstallSuccessful"
-	installUnuccessful         = "InstallUnsuccessful"
+	installUnsuccessful        = "InstallUnsuccessful"
 	logger                     = logr.Log.WithName("RocketAIHub Controller")
 	retryInterval              = 30 * time.Second
 	timeout                    = 600 * time.Second
+	certManagerVersion         = "v1.5.4"
+	certManagerRepoName        = "jetstack"
+	certManagerReleaseName     = "cert-manager"
+	gpuOperatorReleaseName     = "gpu-operator"
+	gpuOperatorVersion         = "v1.10.1-ubi8"
 )
 
 // Install all the components
 func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) error {
-	// Change the path of manifests for debugging
-	if env := os.Getenv("MANIFEST_ROOT_PATH"); env != "" {
-		manifestRootPath = env
+	// Change the path of manifests and GPU operator for debugging
+	if rootPath := os.Getenv("PROJECT_ROOT_PATH"); rootPath != "" {
+		manifestRootPath = filepath.Join(rootPath, "manifests/overlays/openshift")
+		gpuOperatorPath = filepath.Join(rootPath, "gpu-operator/deployments/gpu-operator")
 	}
 
-	// Install Cert Manager operator using helm, then update the satus of CR
-	operatorName := "Cert Manager Operator"
-	releaseName := "cert-manager"
-	repoName := "jetstack"
-	repoURL := "https://charts.jetstack.io"
-	conditionMessage := fmt.Sprintf("Installation of %s %s is successful", operatorName, certManagerVersion)
-	err := installHelmChart(ctx, operatorName, repoName, repoURL, releaseName, certManagerVersion, valueOptions)
-	if err != nil {
+	// Install Cert Manager operator using helm, then update the status of CR
+	// Install the helm chart
+	chartSpec := helmclient.ChartSpec{
+		ReleaseName:     certManagerReleaseName,
+		ChartName:       certManagerRepoName + "/" + certManagerReleaseName,
+		Namespace:       certManagerReleaseName,
+		Version:         certManagerVersion,
+		CreateNamespace: true,
+		SkipCRDs:        false,
+		UpgradeCRDs:     true,
+		ValuesOptions:   valueOptions,
+	}
+	chartRepo := repo.Entry{
+		Name: certManagerRepoName,
+		URL:  "https://charts.jetstack.io",
+	}
+	conditionMessage := fmt.Sprintf("Installation of %s %s is successful", certManagerReleaseName, certManagerVersion)
+	if err := installHelmChart(ctx, chartSpec, &chartRepo); err != nil {
 		conditionMessage = err.Error()
-		if err := r.updateStatus(ctx, req, certManagerIsReady, metav1.ConditionFalse, installUnuccessful, conditionMessage); err != nil {
+		if err := r.updateStatus(ctx, req, certManagerIsReady, metav1.ConditionFalse, installUnsuccessful, conditionMessage); err != nil {
 			return err
 		}
-
 		return err
 	} else {
 		if err := r.updateStatus(ctx, req, certManagerIsReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
@@ -72,13 +88,11 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	// Install operators Service Mesh (incl. Elasticsearch, Kiali, Jaeger), Namespace-Configuration, Serverless, Node Feature Discovery, GPU Operator, and Grafana
 	manifestPath := filepath.Join(manifestRootPath, "subscriptions")
 	conditionMessage = "Installation of dependent operators is successful"
-	err = resources.CreateResources(ctx, r.Client, manifestPath)
-	if err != nil {
+	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
 		conditionMessage = err.Error()
-		if err := r.updateStatus(ctx, req, dependentOperatorsAreReady, metav1.ConditionFalse, installUnuccessful, conditionMessage); err != nil {
+		if err := r.updateStatus(ctx, req, dependentOperatorsAreReady, metav1.ConditionFalse, installUnsuccessful, conditionMessage); err != nil {
 			return err
 		}
-
 		return err
 	} else {
 		if err := r.updateStatus(ctx, req, dependentOperatorsAreReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
@@ -89,13 +103,42 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	// Configure node feature discovery
 	// Wait for the CRD NodeFeatureDiscovery is installed
 	namespacedName := types.NamespacedName{Name: "nodefeaturediscoveries.nfd.openshift.io"}
-	err = r.waitForObject(ctx, &apiextv1.CustomResourceDefinition{}, namespacedName, retryInterval, timeout)
-	if err != nil {
+	if err := r.waitForObject(ctx, &apiextv1.CustomResourceDefinition{}, namespacedName, retryInterval, timeout); err != nil {
 		return err
 	}
 	manifestPath = filepath.Join(manifestRootPath, "nfd")
 	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
 		return err
+	}
+
+	// Install GPU Operator
+	rocketaihub := rocketaihubv1alpha1.RocketAIHub{}
+	if err := r.Get(ctx, req.NamespacedName, &rocketaihub); err != nil {
+		return err
+	}
+	if rocketaihub.Spec.Components.GpuOperator {
+		chartSpec := helmclient.ChartSpec{
+			ReleaseName:     gpuOperatorReleaseName,
+			ChartName:       gpuOperatorPath, // chart name is the path of chart for chart from local directory
+			Namespace:       gpuOperatorReleaseName,
+			Version:         gpuOperatorVersion,
+			CreateNamespace: true,
+			SkipCRDs:        false,
+			UpgradeCRDs:     true,
+			ValuesOptions:   valueOptions,
+		}
+		conditionMessage := fmt.Sprintf("Installation of %s %s is successful", gpuOperatorReleaseName, gpuOperatorVersion)
+		if err := installHelmChart(ctx, chartSpec, nil); err != nil {
+			conditionMessage = err.Error()
+			if err := r.updateStatus(ctx, req, gpuOperatorIsReady, metav1.ConditionFalse, installUnsuccessful, conditionMessage); err != nil {
+				return err
+			}
+			return err
+		} else {
+			if err := r.updateStatus(ctx, req, gpuOperatorIsReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
+				return err
+			}
+		}
 	}
 
 	// Configure grafana
@@ -110,8 +153,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		Name:      "istio-operator",
 		Namespace: "openshift-operators",
 	}
-	err = r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout)
-	if err != nil {
+	if err := r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout); err != nil {
 		return err
 	}
 	manifestPath = filepath.Join(manifestRootPath, "servicemesh")
@@ -123,14 +165,12 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		Name:      "istiod-kubeflow",
 		Namespace: "istio-system",
 	}
-	err = r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout)
 	conditionMessage = "Service mesh is configured successfully"
-	if err != nil {
+	if err := r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout); err != nil {
 		conditionMessage = err.Error()
-		if err := r.updateStatus(ctx, req, servicemeshIsReady, metav1.ConditionFalse, installUnuccessful, conditionMessage); err != nil {
+		if err := r.updateStatus(ctx, req, servicemeshIsReady, metav1.ConditionFalse, installUnsuccessful, conditionMessage); err != nil {
 			return err
 		}
-
 		return err
 	} else {
 		if err := r.updateStatus(ctx, req, servicemeshIsReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
@@ -147,14 +187,12 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		Name:      "centraldashboard",
 		Namespace: "kubeflow",
 	}
-	err = r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout)
 	conditionMessage = "Installation of Kubeflow is successful"
-	if err != nil {
+	if err := r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout); err != nil {
 		conditionMessage = err.Error()
-		if err := r.updateStatus(ctx, req, kubeflowIsReady, metav1.ConditionFalse, installUnuccessful, conditionMessage); err != nil {
+		if err := r.updateStatus(ctx, req, kubeflowIsReady, metav1.ConditionFalse, installUnsuccessful, conditionMessage); err != nil {
 			return err
 		}
-
 		return err
 	} else {
 		if err := r.updateStatus(ctx, req, kubeflowIsReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
@@ -169,7 +207,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Request, condType string, condStatus metav1.ConditionStatus, condReason, condMessage string) error {
 	rocketaihub := &rocketaihubv1alpha1.RocketAIHub{}
 	if err := r.Get(ctx, req.NamespacedName, rocketaihub); err != nil {
-		// Error reading the object, requeque the request.
+		// Error reading the object, requeue the request.
 		logger.Error(err, "Failed to get RocketAIHub instance")
 		return err
 	}
@@ -192,10 +230,10 @@ func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Reque
 	return nil
 }
 
-func installHelmChart(ctx context.Context, operatorName string, repoName string, repoURL string, releaseName string, version string, valueOptions values.Options) error {
-	chartName := repoName + "/" + releaseName
+// For the installation of chart using local chart directory, local chart archive or url to a chart archive, charRepo should be nil
+func installHelmChart(ctx context.Context, chartSpec helmclient.ChartSpec, chartRepo *repo.Entry) error {
 	opt := &helmclient.Options{
-		Namespace:        releaseName,
+		Namespace:        chartSpec.ReleaseName,
 		RepositoryCache:  "/tmp/.helmcache",
 		RepositoryConfig: "/tmp/.helmrepo",
 		Linting:          true,
@@ -206,36 +244,29 @@ func installHelmChart(ctx context.Context, operatorName string, repoName string,
 	}
 
 	// Check if the chart is already installed
-	release, err := helmClient.GetRelease(releaseName)
+	release, err := helmClient.GetRelease(chartSpec.ReleaseName)
 	if err != nil && errors.IsNotFound(err) {
-		logger.Error(err, "Failed to get release "+releaseName)
+		logger.Error(err, "Failed to get release "+chartSpec.ReleaseName)
 		return err
-	} else if release == nil || release.Chart.Metadata.Version != version {
-		logger.Info(fmt.Sprintf("Starting the installation of %s %s", operatorName, version))
-		// Add the helm repo
-		chartRepo := repo.Entry{
-			Name: repoName,
-			URL:  repoURL,
+	} else if release == nil || release.Chart.Metadata.Version != chartSpec.Version {
+		logger.Info(fmt.Sprintf("Starting the installation of %s %s", chartSpec.ReleaseName, chartSpec.Version))
+		// If chartRepo is not nil, it means the chart is from a remote chart repo
+		// The repo needs to be added locally before it can be installed
+		if chartRepo != nil {
+			// A chart repository is an HTTP server that provides information on charts
+			// After adding the chart repository, a local repository cache will be created for the chart
+			if err := helmClient.AddOrUpdateChartRepo(*chartRepo); err != nil {
+				logger.Error(err, "Failed to add or update char repo with URL "+chartRepo.URL)
+				return err
+			}
 		}
-		if err := helmClient.AddOrUpdateChartRepo(chartRepo); err != nil {
-			logger.Error(err, "Failed to add or update char repo with URL "+repoURL)
-			return err
-		}
-		// Install the helm chart
-		chartSpec := helmclient.ChartSpec{
-			ReleaseName:     releaseName,
-			ChartName:       chartName,
-			Namespace:       releaseName,
-			Version:         version,
-			CreateNamespace: true,
-			SkipCRDs:        false,
-			UpgradeCRDs:     true,
-			ValuesOptions:   valueOptions,
-		}
+
 		if _, err := helmClient.InstallOrUpgradeChart(ctx, &chartSpec, nil); err != nil {
-			logger.Error(err, fmt.Sprintf("Failed to install %s %s ", operatorName, version))
+			logger.Error(err, fmt.Sprintf("Failed to install %s %s ", chartSpec.ReleaseName, chartSpec.Version))
 			return err
 		}
+	} else {
+		logger.Info(fmt.Sprintf("%s %s is already installed in the cluster", chartSpec.ReleaseName, chartSpec.Version))
 	}
 
 	return nil
@@ -243,7 +274,7 @@ func installHelmChart(ctx context.Context, operatorName string, repoName string,
 
 // Uninstall the components
 func (r *RocketAIHubReconciler) Uninstall(ctx context.Context) error {
-	// Delete all the existing inference servcie instance
+	// Delete all the existing inference service instance
 	// List function implicitly triggers a watch via the underlying informer cache, which will cause some issue after deleting the CRD InferenceService
 	// So change to use an uncached client to send the one-time request to the server
 	uncachedClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: r.Scheme})

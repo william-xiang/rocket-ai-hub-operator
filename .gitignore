@@ -28,3 +28,7 @@ go.work
 
 # The __debug_bin file for debugging
 **/__debug_bin*
+
+# The git cloned sources used in the image build
+gpu-operator/
+kubeflow-ppc64le-manifests/

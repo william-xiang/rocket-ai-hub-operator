@@ -22,42 +22,15 @@ import (
 
 // RocketAIHubSpec defines the desired state of RocketAIHub
 type RocketAIHubSpec struct {
-	// Components defines the components to be installed
+	// Components defines the optional components to be installed
 	Components Components `json:"components,omitempty"`
 }
 
 type Components struct {
-	Katib             Katib             `json:"katib,omitempty"`
-	KServe            Kserve            `json:"kServe,omitempty"`
-	KubeflowPipelines KubeflowPipelines `json:"kubeflowPipelines,omitempty"`
-	TrainingOperator  TrainingOperator  `json:"trainingOperator,omitempty"`
-	KubeflowNotebooks KubeflowNotebooks `json:"kubeflowNotebooks,omitempty"`
-}
-
-type Katib struct {
-	Component `json:""`
-}
-
-type Kserve struct {
-	Component `json:""`
-}
-
-type KubeflowPipelines struct {
-	Component `json:""`
-}
-
-type TrainingOperator struct {
-	Component `json:""`
-}
-
-type KubeflowNotebooks struct {
-	Component `json:""`
-}
-
-type Component struct {
-	// +kubebuilder:default=true
+	// +kubebuilder:default=false
 	// +kubebuilder:validation:Required
-	Install bool `json:"install,omitempty"`
+	// Choose whether to install the GPU Operator
+	GpuOperator bool `json:"gpuOperator"`
 }
 
 // RocketAIHubStatus defines the observed state of RocketAIHub

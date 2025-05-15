@@ -15,7 +15,8 @@ RUN go mod download
 COPY cmd/main.go cmd/main.go
 COPY api/ api/
 COPY internal/controller/ internal/controller/
-COPY manifests/ manifests/
+COPY kubeflow-ppc64le-manifests/ manifests/
+COPY gpu-operator/deployments/gpu-operator/ gpu-operator/
 COPY pkg/ pkg/
 
 # Build
@@ -30,6 +31,7 @@ FROM alpine:latest
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY --from=builder /workspace/manifests/ manifests/
+COPY --from=builder /workspace/gpu-operator/ gpu-operator/
 
 # Install git which is used by Krusty to load manifests from a Git URL
 RUN apk update && apk add git

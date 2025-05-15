@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	rocketaihubv1alpha1 "github.com/IBM/rocketaihub-operator/api/v1alpha1"
@@ -14,6 +15,7 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 
 	servingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	operatorv1alph1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -39,8 +41,8 @@ var (
 	installSuccessful          = "InstallSuccessful"
 	installUnsuccessful        = "InstallUnsuccessful"
 	logger                     = logr.Log.WithName("RocketAIHub Controller")
-	retryInterval              = 30 * time.Second
-	timeout                    = 600 * time.Second
+	retryInterval              = 10 * time.Second
+	timeout                    = 300 * time.Second
 	certManagerVersion         = "v1.5.4"
 	certManagerRepoName        = "jetstack"
 	certManagerReleaseName     = "cert-manager"
@@ -52,7 +54,7 @@ var (
 func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) error {
 	// Change the path of manifests and GPU operator for debugging
 	if rootPath := os.Getenv("PROJECT_ROOT_PATH"); rootPath != "" {
-		manifestRootPath = filepath.Join(rootPath, "manifests/overlays/openshift")
+		manifestRootPath = filepath.Join(rootPath, "kubeflow-ppc64le-manifests/overlays/openshift")
 		gpuOperatorPath = filepath.Join(rootPath, "gpu-operator/deployments/gpu-operator")
 	}
 
@@ -135,6 +137,11 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		return err
 	}
 
+	// Approve all the pending install plans
+	if err := r.approveInstallPlans(ctx); err != nil {
+		return err
+	}
+
 	// Configure service mesh
 	// Wait for deployment istio-operator is ready
 	namespacedName = types.NamespacedName{
@@ -206,7 +213,7 @@ func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Reque
 		Message:            condMessage,
 	}
 
-	if !contains(rocketaihub.Status.Conditions, condition) {
+	if !containsCondition(rocketaihub.Status.Conditions, condition) {
 		rocketaihub.Status.Conditions = append(rocketaihub.Status.Conditions, condition)
 		if err := r.Status().Update(ctx, rocketaihub); err != nil {
 			logger.Error(err, "Resource status update failed.")
@@ -326,7 +333,7 @@ func (r *RocketAIHubReconciler) Uninstall(ctx context.Context) error {
 }
 
 // Check if the condition already exists in the conditions of the CR
-func contains(conditions []metav1.Condition, condition metav1.Condition) bool {
+func containsCondition(conditions []metav1.Condition, condition metav1.Condition) bool {
 	for _, e := range conditions {
 		if e.Type == condition.Type && e.Status == condition.Status && e.Reason == condition.Reason && e.Message == condition.Message {
 			return true
@@ -362,6 +369,47 @@ func (r *RocketAIHubReconciler) waitForObject(ctx context.Context, obj client.Ob
 	if err != nil {
 		logger.Error(err, fmt.Sprintf("Failed to wait for %s %s", kind, namespacedName.Name))
 		return err
+	}
+	return nil
+}
+
+func startsWithString(strs []string, str string) bool {
+	for _, v := range strs {
+		if strings.HasPrefix(str, v) {
+			return true
+		}
+	}
+	return false
+}
+
+// Approve all the pending install plans
+func (r *RocketAIHubReconciler) approveInstallPlans(ctx context.Context) error {
+	installPlans := operatorv1alph1.InstallPlanList{}
+	if err := r.List(ctx, &installPlans); err != nil {
+		return err
+	}
+
+	for _, installPlan := range installPlans.Items {
+		expectedCSVNames := []string{
+			"elasticsearch-operator",
+			"kiali-operator",
+			"serverless-operator",
+			"servicemeshoperator",
+			"jaeger-operator",
+			"grafana-operator",
+			"namespace-configuration-operator",
+			"nfd",
+		}
+		phase := installPlan.Status.Phase
+		csvName := installPlan.Spec.ClusterServiceVersionNames[0]
+		// The install plan needs to be approved which requires manual approval and CSV name is the expected one
+		if phase == operatorv1alph1.InstallPlanPhaseRequiresApproval && startsWithString(expectedCSVNames, csvName) {
+			logger.Info(fmt.Sprintf("Approving the install plan %s in project %s", installPlan.Name, installPlan.Namespace))
+			installPlan.Spec.Approved = true
+			if err := r.Update(ctx, &installPlan); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

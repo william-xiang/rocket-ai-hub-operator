@@ -189,6 +189,12 @@ rules:
 - apiGroups:
   - operators.coreos.com
   resources:
+  - installplans
+  verbs:
+  - '*'
+- apiGroups:
+  - operators.coreos.com
+  resources:
   - operatorgroups
   verbs:
   - '*'

@@ -9,16 +9,20 @@ metadata:
           "kind": "RocketAIHub",
           "metadata": {
             "labels": {
-              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/managed-by": "olm",
               "app.kubernetes.io/name": "rocketaihub-operator"
             },
-            "name": "rocketaihub-sample"
+            "name": "rocketaihub"
           },
-          "spec": null
+          "spec": {
+            "components": {
+              "gpuOperator": true
+            }
+          }
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-05-14T20:57:57Z"
+    createdAt: "2025-05-15T20:12:13Z"
     operators.operatorframework.io/builder: operator-sdk-v1.39.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: rocketaihub-operator.v0.0.1
@@ -366,7 +370,7 @@ spec:
                       - --leader-elect
                     command:
                       - /manager
-                    image: quay.io/williamxiang/rocketaihub-operator@sha256:0aa2a42919c2a5c9eac6e7f9ab3a643daa7dae39fddf13057ff647d0f91ffb76
+                    image: quay.io/williamxiang/rocketaihub-operator@sha256:ab00ef591962921b4dcf88d17064fa1b5b9cccc4d526520d563194b772852c4a
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -449,6 +453,6 @@ spec:
   relatedImages:
     - image: gcr.io/kubebuilder/kube-rbac-proxy@sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea
       name: kube-rbac-proxy
-    - image: quay.io/williamxiang/rocketaihub-operator@sha256:0aa2a42919c2a5c9eac6e7f9ab3a643daa7dae39fddf13057ff647d0f91ffb76
+    - image: quay.io/williamxiang/rocketaihub-operator@sha256:ab00ef591962921b4dcf88d17064fa1b5b9cccc4d526520d563194b772852c4a
       name: manager
   version: 0.0.1

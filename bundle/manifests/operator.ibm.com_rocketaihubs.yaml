@@ -40,38 +40,14 @@ spec:
             description: RocketAIHubSpec defines the desired state of RocketAIHub
             properties:
               components:
-                description: Components defines the components to be installed
+                description: Components defines the optional components to be installed
                 properties:
-                  kServe:
-                    properties:
-                      install:
-                        default: true
-                        type: boolean
-                    type: object
-                  katib:
-                    properties:
-                      install:
-                        default: true
-                        type: boolean
-                    type: object
-                  kubeflowNotebooks:
-                    properties:
-                      install:
-                        default: true
-                        type: boolean
-                    type: object
-                  kubeflowPipelines:
-                    properties:
-                      install:
-                        default: true
-                        type: boolean
-                    type: object
-                  trainingOperator:
-                    properties:
-                      install:
-                        default: true
-                        type: boolean
-                    type: object
+                  gpuOperator:
+                    default: false
+                    description: Choose whether to install the GPU Operator
+                    type: boolean
+                required:
+                - gpuOperator
                 type: object
             type: object
           status:

@@ -230,15 +230,24 @@ func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Reque
 	return nil
 }
 
-// For the installation of chart using local chart directory, local chart archive or url to a chart archive, charRepo should be nil
-func installHelmChart(ctx context.Context, chartSpec helmclient.ChartSpec, chartRepo *repo.Entry) error {
+func getHelmClient(nameSpace string) (helmclient.Client, error) {
 	opt := &helmclient.Options{
-		Namespace:        chartSpec.ReleaseName,
+		Namespace:        nameSpace,
 		RepositoryCache:  "/tmp/.helmcache",
 		RepositoryConfig: "/tmp/.helmrepo",
 		Linting:          true,
 	}
 	helmClient, err := helmclient.New(opt)
+	if err != nil {
+		return nil, err
+	}
+
+	return helmClient, nil
+}
+
+// For the installation of chart using local chart directory, local chart archive or url to a chart archive, charRepo should be nil
+func installHelmChart(ctx context.Context, chartSpec helmclient.ChartSpec, chartRepo *repo.Entry) error {
+	helmClient, err := getHelmClient(chartSpec.ReleaseName)
 	if err != nil {
 		return err
 	}
@@ -306,13 +315,22 @@ func (r *RocketAIHubReconciler) Uninstall(ctx context.Context) error {
 	}
 
 	// Delete the kubeflow
-	// Deploy Kubeflow
 	if err := resources.DeleteResources(ctx, r.Client, manifestRootPath); err != nil {
 		return err
 	}
+
 	// Delete the service mesh configuration
 	manifestPath := filepath.Join(manifestRootPath, "servicemesh")
 	if err := resources.DeleteResources(ctx, r.Client, manifestPath); err != nil {
+		return err
+	}
+
+	// Uninstall the GPU operator
+	helmClient, err := getHelmClient(gpuOperatorReleaseName)
+	if err != nil {
+		return err
+	}
+	if err := helmClient.UninstallReleaseByName(gpuOperatorReleaseName); err != nil {
 		return err
 	}
 

@@ -22,7 +22,7 @@ var logger = logr.Log.WithName("RocketAIHub Controller")
 
 // Substitutes the values of environment variables in the manifests
 func substituteEnv(ctx context.Context, client client.Client, yaml string) (string, error) {
-	// Substitue the value of environment variable CLUSTER_DOMAIN for servicemesh
+	// Substitute the value of environment variable CLUSTER_DOMAIN for servicemesh
 	if strings.Contains(yaml, "${CLUSTER_DOMAIN}") {
 		ingress := &configv1.Ingress{}
 		err := client.Get(ctx, types.NamespacedName{Name: "cluster"}, ingress)
@@ -38,13 +38,13 @@ func substituteEnv(ctx context.Context, client client.Client, yaml string) (stri
 }
 
 // Get all the resources from the given manifest path using kustomize
-func getResources(manfiestPath string) ([]*resource.Resource, error) {
+func getResources(manifestPath string) ([]*resource.Resource, error) {
 	// Get a kustomizer instance to deploy the applications using the manifests
 	kustomizer := krusty.MakeKustomizer(krusty.MakeDefaultOptions())
 	fs := filesys.MakeFsOnDisk()
 
 	// Create the ResMap for all the resources in the manifests
-	resMap, err := kustomizer.Run(fs, manfiestPath)
+	resMap, err := kustomizer.Run(fs, manifestPath)
 	if err != nil {
 		return nil, err
 	}
@@ -87,8 +87,8 @@ func CreateResources(ctx context.Context, client client.Client, manifestPath str
 	return nil
 }
 
-func createResource(ctx context.Context, client client.Client, ressource *resource.Resource) error {
-	unstructured, err := getUnstructuredObj(ctx, client, ressource)
+func createResource(ctx context.Context, client client.Client, resource *resource.Resource) error {
+	unstructured, err := getUnstructuredObj(ctx, client, resource)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func createResource(ctx context.Context, client client.Client, ressource *resour
 	return nil
 }
 
-// Delete resources with provided manfiests using kustomize
+// Delete resources with provided manifests using kustomize
 func DeleteResources(ctx context.Context, client client.Client, manifestPath string) error {
 	resources, err := getResources(manifestPath)
 	if err != nil {

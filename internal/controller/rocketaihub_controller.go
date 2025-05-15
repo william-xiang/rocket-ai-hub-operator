@@ -23,9 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logr "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	rocketaihubv1alpha1 "github.com/IBM/rocketaihub-operator/api/v1alpha1"
 )
@@ -94,7 +96,7 @@ func (r *RocketAIHubReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			log.Info("RocketAIHub instance not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
-		// Error reading the object, requeque the request.
+		// Error reading the object, requeue the request
 		log.Error(err, "Failed to get RocketAIHub instance")
 		return ctrl.Result{}, err
 	}
@@ -106,6 +108,10 @@ func (r *RocketAIHubReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			if err := r.Update(ctx, rocketaihub); err != nil {
 				return ctrl.Result{}, err
 			}
+		}
+
+		if err := r.Install(ctx, req); err != nil {
+			return ctrl.Result{}, err
 		}
 	} else {
 		if controllerutil.ContainsFinalizer(rocketaihub, finalizer) {
@@ -123,17 +129,14 @@ func (r *RocketAIHubReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	if err := r.Install(ctx, req); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RocketAIHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// With GenerationChangedPredicate, any update events with writes only to the status field will not be reconciled.
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&rocketaihubv1alpha1.RocketAIHub{}).
+		For(&rocketaihubv1alpha1.RocketAIHub{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }

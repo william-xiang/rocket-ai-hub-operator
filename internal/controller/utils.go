@@ -73,31 +73,23 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		URL:  "https://charts.jetstack.io",
 	}
 	conditionMessage := fmt.Sprintf("Installation of %s %s is successful", certManagerReleaseName, certManagerVersion)
-	if err := installHelmChart(ctx, chartSpec, &chartRepo); err != nil {
-		conditionMessage = err.Error()
-		if err := r.updateStatus(ctx, req, certManagerIsReady, metav1.ConditionFalse, installUnsuccessful, conditionMessage); err != nil {
-			return err
-		}
+	installErr := installHelmChart(ctx, chartSpec, &chartRepo)
+	if err := r.updateStatus(ctx, req, certManagerIsReady, conditionMessage, installErr); err != nil {
 		return err
-	} else {
-		if err := r.updateStatus(ctx, req, certManagerIsReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
-			return err
-		}
+	}
+	if installErr != nil {
+		return installErr
 	}
 
 	// Install operators Service Mesh (incl. Elasticsearch, Kiali, Jaeger), Namespace-Configuration, Serverless, Node Feature Discovery, GPU Operator, and Grafana
 	manifestPath := filepath.Join(manifestRootPath, "subscriptions")
 	conditionMessage = "Installation of dependent operators is successful"
-	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
-		conditionMessage = err.Error()
-		if err := r.updateStatus(ctx, req, dependentOperatorsAreReady, metav1.ConditionFalse, installUnsuccessful, conditionMessage); err != nil {
-			return err
-		}
+	installErr = resources.CreateResources(ctx, r.Client, manifestPath)
+	if err := r.updateStatus(ctx, req, dependentOperatorsAreReady, conditionMessage, installErr); err != nil {
 		return err
-	} else {
-		if err := r.updateStatus(ctx, req, dependentOperatorsAreReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
-			return err
-		}
+	}
+	if installErr != nil {
+		return installErr
 	}
 
 	// Configure node feature discovery
@@ -128,16 +120,12 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 			ValuesOptions:   valueOptions,
 		}
 		conditionMessage := fmt.Sprintf("Installation of %s %s is successful", gpuOperatorReleaseName, gpuOperatorVersion)
-		if err := installHelmChart(ctx, chartSpec, nil); err != nil {
-			conditionMessage = err.Error()
-			if err := r.updateStatus(ctx, req, gpuOperatorIsReady, metav1.ConditionFalse, installUnsuccessful, conditionMessage); err != nil {
-				return err
-			}
+		installErr := installHelmChart(ctx, chartSpec, nil)
+		if err := r.updateStatus(ctx, req, gpuOperatorIsReady, conditionMessage, installErr); err != nil {
 			return err
-		} else {
-			if err := r.updateStatus(ctx, req, gpuOperatorIsReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
-				return err
-			}
+		}
+		if installErr != nil {
+			return installErr
 		}
 	}
 
@@ -166,16 +154,12 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		Namespace: "istio-system",
 	}
 	conditionMessage = "Service mesh is configured successfully"
-	if err := r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout); err != nil {
-		conditionMessage = err.Error()
-		if err := r.updateStatus(ctx, req, servicemeshIsReady, metav1.ConditionFalse, installUnsuccessful, conditionMessage); err != nil {
-			return err
-		}
+	waitErr := r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout)
+	if err := r.updateStatus(ctx, req, servicemeshIsReady, conditionMessage, installErr); err != nil {
 		return err
-	} else {
-		if err := r.updateStatus(ctx, req, servicemeshIsReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
-			return err
-		}
+	}
+	if waitErr != nil {
+		return waitErr
 	}
 
 	// Deploy Kubeflow
@@ -188,30 +172,32 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		Namespace: "kubeflow",
 	}
 	conditionMessage = "Installation of Kubeflow is successful"
-	if err := r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout); err != nil {
-		conditionMessage = err.Error()
-		if err := r.updateStatus(ctx, req, kubeflowIsReady, metav1.ConditionFalse, installUnsuccessful, conditionMessage); err != nil {
-			return err
-		}
+	waitErr = r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout)
+	if err := r.updateStatus(ctx, req, kubeflowIsReady, conditionMessage, installErr); err != nil {
 		return err
-	} else {
-		if err := r.updateStatus(ctx, req, kubeflowIsReady, metav1.ConditionTrue, installSuccessful, conditionMessage); err != nil {
-			return err
-		}
+	}
+	if waitErr != nil {
+		return waitErr
 	}
 
 	logger.Info("Instance of Rocket AI Hub operator is deployed successfully!")
 	return nil
 }
 
-func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Request, condType string, condStatus metav1.ConditionStatus, condReason, condMessage string) error {
+func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Request, condType string, condMessage string, err error) error {
 	rocketaihub := &rocketaihubv1alpha1.RocketAIHub{}
 	if err := r.Get(ctx, req.NamespacedName, rocketaihub); err != nil {
-		// Error reading the object, requeue the request.
+		// Error reading the object, requeue the request
 		logger.Error(err, "Failed to get RocketAIHub instance")
 		return err
 	}
 
+	condStatus := metav1.ConditionTrue
+	condReason := installSuccessful
+	if err != nil {
+		condStatus = metav1.ConditionFalse
+		condReason = installUnsuccessful
+	}
 	condition := metav1.Condition{
 		Type:               condType,
 		Status:             condStatus,
@@ -224,6 +210,7 @@ func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Reque
 		rocketaihub.Status.Conditions = append(rocketaihub.Status.Conditions, condition)
 		if err := r.Status().Update(ctx, rocketaihub); err != nil {
 			logger.Error(err, "Resource status update failed.")
+			return err
 		}
 	}
 

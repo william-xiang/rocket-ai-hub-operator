@@ -317,7 +317,7 @@ func (r *RocketAIHubReconciler) Uninstall(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := helmClient.UninstallReleaseByName(gpuOperatorReleaseName); err != nil {
+	if err := helmClient.UninstallReleaseByName(gpuOperatorReleaseName); err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 

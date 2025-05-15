@@ -22,7 +22,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-05-15T20:12:13Z"
+    createdAt: "2025-05-15T20:39:44Z"
     operators.operatorframework.io/builder: operator-sdk-v1.39.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: rocketaihub-operator.v0.0.1
@@ -187,6 +187,12 @@ spec:
               verbs:
                 - '*'
             - apiGroups:
+                - nvidia.com
+              resources:
+                - '*'
+              verbs:
+                - '*'
+            - apiGroups:
                 - oauth.openshift.io
               resources:
                 - oauthclients
@@ -303,6 +309,12 @@ spec:
               verbs:
                 - '*'
             - apiGroups:
+                - security.openshift.io
+              resources:
+                - securitycontextconstraints
+              verbs:
+                - '*'
+            - apiGroups:
                 - serving.kserve.io
               resources:
                 - '*'
@@ -370,7 +382,7 @@ spec:
                       - --leader-elect
                     command:
                       - /manager
-                    image: quay.io/williamxiang/rocketaihub-operator@sha256:ab00ef591962921b4dcf88d17064fa1b5b9cccc4d526520d563194b772852c4a
+                    image: quay.io/williamxiang/rocketaihub-operator@sha256:a6119c857b39c7b5e1c582fe31d2d73960ad1adb542151304d4a00533d3a0320
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -453,6 +465,6 @@ spec:
   relatedImages:
     - image: gcr.io/kubebuilder/kube-rbac-proxy@sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea
       name: kube-rbac-proxy
-    - image: quay.io/williamxiang/rocketaihub-operator@sha256:ab00ef591962921b4dcf88d17064fa1b5b9cccc4d526520d563194b772852c4a
+    - image: quay.io/williamxiang/rocketaihub-operator@sha256:a6119c857b39c7b5e1c582fe31d2d73960ad1adb542151304d4a00533d3a0320
       name: manager
   version: 0.0.1

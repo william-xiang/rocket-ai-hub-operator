@@ -321,6 +321,26 @@ YQ := $(LOCALBIN)/yq-$(YQ_VERSION)
 yq: ## Download yq locally if necessary.
 	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4,$(YQ_VERSION))
 
+.PHONY: jq
+JQ = $(LOCALBIN)/jq
+jq: ## Download jq locally if necessary.
+ifeq (,$(wildcard $(JQ)))
+ifeq (,$(shell which jq 2>/dev/null))
+	@{ \
+	set -e ;\
+	set -x ;\
+	mkdir -p $(dir $(JQ)) ;\
+	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) ;\
+	echo $$OS ;\
+	if [[ $$(OS) -eq "Darwin" ]]; then OS="macos"; fi ;\
+	curl -sSLo $(JQ) https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-$${OS}-$${ARCH} ;\
+	chmod +x $(JQ) ;\
+	}
+else
+JQ = $(shell which jq)
+endif
+endif
+
 # A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
 # These images MUST exist in a registry and be pull-able.
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
@@ -334,14 +354,17 @@ FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG)
 endif
 
 # Generate content for a file-based catalog
-.PHONY: catalog
-catalog: opm yq
+.PHONY: 
+BUNDLE_DIGEST := $(shell docker manifest inspect -v $(BUNDLE_IMG) | $(JQ) -r .Descriptor.digest)
+catalog: opm yq jq
 	# Generate the catalog dockerfile
 	$(OPM) generate dockerfile catalog
 	# Generate an olm.package declarative config blob
 	$(OPM) init rocketaihub-operator $(BUNDLE_DEFAULT_CHANNEL) --output yaml > catalog/operator.yaml
 	# Add bundle to the catalog
 	$(OPM) render $(BUNDLE_IMG) --output=yaml >> catalog/operator.yaml
+	# Replace the bundle image tag with the digest
+	sed -i "s|image: $(BUNDLE_IMG)|image: $(IMAGE_TAG_BASE)-bundle@$(BUNDLE_DIGEST)|" catalog/operator.yaml
 	# Update the channel entry for the bundle
 	OPERATOR_VERSION=rocketaihub-operator.v$(VERSION) \
 	DEFAULT_CHANNEL=$(DEFAULT_CHANNEL) \

@@ -2,19 +2,47 @@
 
 This is the operator for Rocket AI Hub which provides AI and machine learning (ML) capabilities optimized for IBM Power systems.
 
-## Usage
+## Installation
 
 ### Supported platform
 
 - OpenShift v4.14+ on ppc64le
 
-### Installation
+### Prerequisites
 
-TODO: Add instructions to install the operator using Operator Hub or OpenShift command line
+Make sure that OpenShift CLI is installed if you want to install the operator using oc command. Follow the instructions in this [link](https://docs.redhat.com/en/documentation/openshift_container_platform/4.11/html/cli_tools/openshift-cli-oc#cli-getting-started) to install OpenShift CLI.
 
-### Uninstallation
+### Installation steps
 
-TODO: Add instructions to uninstall the operator and clean up the resources
+1. Create a catalog source  
+    Catalog source can be created in OpenShift using Openshift web console or oc command.  
+    Below is the content of the catalog source.
+
+    ```yaml
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    metadata:
+    name: rocketaihub
+    namespace: openshift-marketplace
+    spec:
+    displayName: 'Rocket AI Hub Catalog Source'
+    image: 'quay.io/williamxiang/rocketaihub-operator-catalog:v0.0.1'
+    publisher: 'IBM'
+    sourceType: grpc
+    updateStrategy:
+        registryPoll:
+        interval: 45m
+    ```
+
+2. Install the operator  
+    The operator can be installed using the web console. After the catalog source is created and ready, search for `rocketaihub` in `OperatorHub` page, then click install button to install the Rocket AI Hub operator.
+
+3. Create a Rocket AI Hub instance  
+    After the operator is installed and ready, it's time to create a Rocket AI Hub instance. This can also be done using Openshift web console.  
+    Under the installed operators page for `Rocket AI Hub`, click `Create instance` button. In the `Create RocketAIHub` page, you can change the name of the new instance and select the optional components to be installed. Then click `Create` button to create the instance.
+
+    > **Note:** Only one Rocket AI Hub instance can be created in the same cluster. An error will appear when trying to create more than one instance.
+
 
 ## Developer guide
 
@@ -54,11 +82,11 @@ make deploy IMG=<some-registry>/rocketaihub-operator:tag
 >**NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
 privileges or be logged in as admin.
 
-**Create instances of your solution**
+**Create instance of the operator**
 You can apply the samples (examples) from the config/sample:
 
 ```sh
-kubectl apply -k config/samples/
+oc apply -k config/samples/
 ```
 
 >**NOTE**: Ensure that the samples has default values to test it out.
@@ -81,20 +109,3 @@ make uninstall
 ```sh
 make undeploy
 ```
-
-## License
-
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-

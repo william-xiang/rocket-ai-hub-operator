@@ -12,7 +12,7 @@ spec:
     listKind: RocketAIHubList
     plural: rocketaihubs
     singular: rocketaihub
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v1alpha1
     schema:

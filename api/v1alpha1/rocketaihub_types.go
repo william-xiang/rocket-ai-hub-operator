@@ -40,7 +40,7 @@ type RocketAIHubStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:scope=Namespaced
+//+kubebuilder:resource:scope=Cluster
 
 // RocketAIHub is the Schema for the rocketaihubs API
 type RocketAIHub struct {

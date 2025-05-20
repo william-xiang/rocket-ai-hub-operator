@@ -6,6 +6,16 @@ metadata:
   creationTimestamp: null
   name: rocketaihubs.operator.ibm.com
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: rocketaihub-operator-webhook-service
+          namespace: rocketaihub-operator-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
   group: operator.ibm.com
   names:
     kind: RocketAIHub

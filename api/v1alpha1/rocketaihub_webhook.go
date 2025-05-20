@@ -17,52 +17,61 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
 var rocketaihublog = logf.Log.WithName("rocketaihub-resource")
 
+// +kubebuilder:object:generate=false
+
+type RocketAIHubValidator struct {
+	client.Client
+}
+
 // SetupWebhookWithManager will setup the manager to manage the webhooks
 func (r *RocketAIHub) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
+		WithValidator(&RocketAIHubValidator{
+			mgr.GetClient(),
+		}).
 		Complete()
 }
 
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
-// Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
 // +kubebuilder:webhook:path=/validate-operator-ibm-com-v1alpha1-rocketaihub,mutating=false,failurePolicy=fail,sideEffects=None,groups=operator.ibm.com,resources=rocketaihubs,verbs=create;update,versions=v1alpha1,name=vrocketaihub.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &RocketAIHub{}
-
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *RocketAIHub) ValidateCreate() (admission.Warnings, error) {
-	rocketaihublog.Info("validate create", "name", r.Name)
+func (v *RocketAIHubValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	rocketaihublog.Info("Validate the creation of Rocket AI Hub instance")
 
-	// TODO(user): fill in your validation logic upon object creation.
+	// Don't allow to create more than one RocketAIHub instance in the cluster
+	// Get the existing RocketAIHub instance in the cluster
+	oldObjs := &RocketAIHubList{}
+	if err := v.List(ctx, oldObjs); err != nil {
+		return nil, fmt.Errorf("failed to get the existing RocketAIHub instances")
+	}
+
+	if len(oldObjs.Items) >= 1 {
+		return nil, fmt.Errorf("cannot create a new RocketAIHub instance because one already exists in the cluster")
+	}
+
 	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *RocketAIHub) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	rocketaihublog.Info("validate update", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object update.
+func (v *RocketAIHubValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *RocketAIHub) ValidateDelete() (admission.Warnings, error) {
-	rocketaihublog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
+func (v *RocketAIHubValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

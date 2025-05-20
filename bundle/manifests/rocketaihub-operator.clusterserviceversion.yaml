@@ -22,7 +22,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-05-15T23:53:17Z"
+    createdAt: "2025-05-20T18:54:48Z"
     operators.operatorframework.io/builder: operator-sdk-v1.39.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: rocketaihub-operator.v0.0.1
@@ -360,6 +360,43 @@ spec:
               spec:
                 containers:
                   - args:
+                      - --health-probe-bind-address=:8081
+                      - --metrics-bind-address=127.0.0.1:8080
+                      - --leader-elect
+                    command:
+                      - /manager
+                    image: quay.io/williamxiang/rocketaihub-operator@sha256:432eed036055014f116cae19e58b13b8a6b026fba45de2df08d5b9f365788f89
+                    livenessProbe:
+                      httpGet:
+                        path: /healthz
+                        port: 8081
+                      initialDelaySeconds: 15
+                      periodSeconds: 20
+                    name: manager
+                    ports:
+                      - containerPort: 9443
+                        name: webhook-server
+                        protocol: TCP
+                    readinessProbe:
+                      httpGet:
+                        path: /readyz
+                        port: 8081
+                      initialDelaySeconds: 5
+                      periodSeconds: 10
+                    resources:
+                      requests:
+                        cpu: 100m
+                        memory: 128Mi
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      capabilities:
+                        drop:
+                          - ALL
+                    volumeMounts:
+                      - mountPath: /tmp/k8s-webhook-server/serving-certs
+                        name: cert
+                        readOnly: true
+                  - args:
                       - --secure-listen-address=0.0.0.0:8443
                       - --upstream=http://127.0.0.1:8080/
                       - --logtostderr=true
@@ -382,39 +419,15 @@ spec:
                       capabilities:
                         drop:
                           - ALL
-                  - args:
-                      - --health-probe-bind-address=:8081
-                      - --metrics-bind-address=127.0.0.1:8080
-                      - --leader-elect
-                    command:
-                      - /manager
-                    image: quay.io/williamxiang/rocketaihub-operator@sha256:8c133f1f490fb3c2b59ef1a436c3daba6e5dc0eaabfb62a812fe99f97cd104e1
-                    livenessProbe:
-                      httpGet:
-                        path: /healthz
-                        port: 8081
-                      initialDelaySeconds: 15
-                      periodSeconds: 20
-                    name: manager
-                    readinessProbe:
-                      httpGet:
-                        path: /readyz
-                        port: 8081
-                      initialDelaySeconds: 5
-                      periodSeconds: 10
-                    resources:
-                      requests:
-                        cpu: 100m
-                        memory: 128Mi
-                    securityContext:
-                      allowPrivilegeEscalation: false
-                      capabilities:
-                        drop:
-                          - ALL
                 securityContext:
                   runAsNonRoot: true
                 serviceAccountName: rocketaihub-operator-controller-manager
                 terminationGracePeriodSeconds: 10
+                volumes:
+                  - name: cert
+                    secret:
+                      defaultMode: 420
+                      secretName: webhook-server-cert
       permissions:
         - rules:
             - apiGroups:
@@ -471,6 +484,38 @@ spec:
   relatedImages:
     - image: gcr.io/kubebuilder/kube-rbac-proxy@sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea
       name: kube-rbac-proxy
-    - image: quay.io/williamxiang/rocketaihub-operator@sha256:8c133f1f490fb3c2b59ef1a436c3daba6e5dc0eaabfb62a812fe99f97cd104e1
+    - image: quay.io/williamxiang/rocketaihub-operator@sha256:432eed036055014f116cae19e58b13b8a6b026fba45de2df08d5b9f365788f89
       name: manager
   version: 0.0.1
+  webhookdefinitions:
+    - admissionReviewVersions:
+        - v1
+      containerPort: 443
+      conversionCRDs:
+        - rocketaihubs.operator.ibm.com
+      deploymentName: rocketaihub-operator-controller-manager
+      generateName: crocketaihubs.kb.io
+      sideEffects: None
+      targetPort: 9443
+      type: ConversionWebhook
+      webhookPath: /convert
+    - admissionReviewVersions:
+        - v1
+      containerPort: 443
+      deploymentName: rocketaihub-operator-controller-manager
+      failurePolicy: Fail
+      generateName: vrocketaihub.kb.io
+      rules:
+        - apiGroups:
+            - operator.ibm.com
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+          resources:
+            - rocketaihubs
+      sideEffects: None
+      targetPort: 9443
+      type: ValidatingAdmissionWebhook
+      webhookPath: /validate-operator-ibm-com-v1alpha1-rocketaihub

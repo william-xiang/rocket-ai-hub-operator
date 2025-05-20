@@ -7,9 +7,9 @@ require (
 	github.com/mittwald/go-helm-client v0.12.17
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.36.3
-	github.com/openshift/api v0.0.0-20250515162708-0154a4f3ba61
+	github.com/openshift/api v0.0.0-20250520155442-870c018be5c5
 	github.com/operator-framework/api v0.31.0
-	helm.sh/helm/v3 v3.17.3
+	helm.sh/helm/v3 v3.18.0
 	k8s.io/api v0.33.1
 	k8s.io/apiextensions-apiserver v0.33.1
 	k8s.io/apimachinery v0.33.1
@@ -176,9 +176,9 @@ require (
 	golang.org/x/tools v0.33.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/api v0.233.0 // indirect
-	google.golang.org/genproto v0.0.0-20250512202823-5a2f75b736a9 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250512202823-5a2f75b736a9 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250512202823-5a2f75b736a9 // indirect
+	google.golang.org/genproto v0.0.0-20250519155744-55703ea1f237 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250519155744-55703ea1f237 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250519155744-55703ea1f237 // indirect
 	google.golang.org/grpc v1.72.1 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
@@ -193,9 +193,10 @@ require (
 	k8s.io/kubectl v0.33.1 // indirect
 	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979 // indirect
 	knative.dev/networking v0.0.0-20250515023348-eea9fd8d72f2 // indirect
-	knative.dev/pkg v0.0.0-20250515022847-873230f3a48e // indirect
+	knative.dev/pkg v0.0.0-20250520014526-44579e9ce5ed // indirect
 	knative.dev/serving v0.45.0 // indirect
 	oras.land/oras-go v1.2.6 // indirect
+	oras.land/oras-go/v2 v2.6.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect

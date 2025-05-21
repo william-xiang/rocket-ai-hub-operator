@@ -6,11 +6,13 @@ This is the operator for Rocket AI Hub which provides AI and machine learning (M
 
 ### Supported platform
 
-- OpenShift v4.14+ on ppc64le
+- OpenShift 4.14, 4.15 on ppc64le (newer versions haven’t been tested yet, you’re welcome to try them and report any issues to us)
 
 ### Prerequisites
 
-Make sure that OpenShift CLI is installed if you want to install the operator using oc command. Follow the instructions in this [link](https://docs.redhat.com/en/documentation/openshift_container_platform/4.11/html/cli_tools/openshift-cli-oc#cli-getting-started) to install OpenShift CLI.
+1. Make sure that OpenShift CLI is installed if you want to install the operator using oc command. Follow the instructions in this [link](https://docs.redhat.com/en/documentation/openshift_container_platform/4.11/html/cli_tools/openshift-cli-oc#cli-getting-started) to install OpenShift CLI.
+
+2. A default storage class should be configured properly on the cluster for storage dynamic provisioning.
 
 ### Installation steps
 
@@ -22,16 +24,16 @@ Make sure that OpenShift CLI is installed if you want to install the operator us
     apiVersion: operators.coreos.com/v1alpha1
     kind: CatalogSource
     metadata:
-    name: rocketaihub
-    namespace: openshift-marketplace
+      name: rocketaihub
+      namespace: openshift-marketplace
     spec:
-    displayName: 'Rocket AI Hub Catalog Source'
-    image: 'quay.io/williamxiang/rocketaihub-operator-catalog:v0.0.1'
-    publisher: 'IBM'
-    sourceType: grpc
-    updateStrategy:
+      displayName: 'Rocket AI Hub Catalog Source'
+      image: 'quay.io/williamxiang/rocketaihub-operator-catalog:v0.0.1'
+      publisher: 'IBM'
+      sourceType: grpc
+      updateStrategy:
         registryPoll:
-        interval: 45m
+          interval: 45m
     ```
 
 2. Install the operator  

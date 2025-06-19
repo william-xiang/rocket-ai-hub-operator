@@ -101,6 +101,12 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - config.openshift.io
+  resources:
+  - oauths
+  verbs:
+  - '*'
+- apiGroups:
   - integreatly.org
   resources:
   - '*'

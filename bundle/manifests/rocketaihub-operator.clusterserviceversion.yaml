@@ -22,7 +22,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-06-19T20:25:55Z"
+    createdAt: "2025-06-19T23:32:28Z"
     operators.operatorframework.io/builder: operator-sdk-v1.39.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: rocketaihub-operator.v0.0.1
@@ -142,6 +142,12 @@ spec:
                 - config.openshift.io
               resources:
                 - ingresses
+              verbs:
+                - '*'
+            - apiGroups:
+                - config.openshift.io
+              resources:
+                - oauths
               verbs:
                 - '*'
             - apiGroups:
@@ -365,7 +371,7 @@ spec:
                       - --leader-elect
                     command:
                       - /manager
-                    image: quay.io/williamxiang/rocketaihub-operator@sha256:fd855fea79e04755a6d529b462851c0534d79e85723568909c6e97ca2fb16657
+                    image: quay.io/williamxiang/rocketaihub-operator@sha256:42586670b0a7e398ae454e16b807f207547d9dceb047a0fc3c8418d007dd0454
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -482,10 +488,10 @@ spec:
   provider:
     name: IBM
   relatedImages:
+    - image: quay.io/williamxiang/rocketaihub-operator@sha256:42586670b0a7e398ae454e16b807f207547d9dceb047a0fc3c8418d007dd0454
+      name: manager
     - image: gcr.io/kubebuilder/kube-rbac-proxy@sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea
       name: kube-rbac-proxy
-    - image: quay.io/williamxiang/rocketaihub-operator@sha256:fd855fea79e04755a6d529b462851c0534d79e85723568909c6e97ca2fb16657
-      name: manager
   version: 0.0.1
   webhookdefinitions:
     - admissionReviewVersions:

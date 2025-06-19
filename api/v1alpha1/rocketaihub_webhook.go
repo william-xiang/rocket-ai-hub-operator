@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -63,6 +65,19 @@ func (v *RocketAIHubValidator) ValidateCreate(ctx context.Context, obj runtime.O
 		return nil, fmt.Errorf("cannot create a new RocketAIHub instance because one already exists in the cluster")
 	}
 
+	// Check if the specified identity provider exists in the cluster
+	rocketaihub := obj.(*RocketAIHub)
+	targetIDP := rocketaihub.Spec.IdentityProvider
+	if targetIDP != "" {
+		exists, err := v.identityProviderExists(ctx, targetIDP)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, fmt.Errorf("cannot find the specified identity provider in cluster. Fix it by either specifying the name of an existing identity provider in the cluster or leaving it empty to use Keycloak as the default identity provider")
+		}
+	}
+
 	return nil, nil
 }
 
@@ -74,4 +89,20 @@ func (v *RocketAIHubValidator) ValidateUpdate(ctx context.Context, oldObj runtim
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (v *RocketAIHubValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	return nil, nil
+}
+
+func (r *RocketAIHubValidator) identityProviderExists(ctx context.Context, targetIDP string) (bool, error) {
+	// Get the identity providers in the cluster
+	oAuth := &configv1.OAuth{}
+	if err := r.Get(ctx, types.NamespacedName{Name: "cluster"}, oAuth); err != nil {
+		return false, err
+	}
+	identityProviders := oAuth.Spec.IdentityProviders
+	for _, idp := range identityProviders {
+		if targetIDP == idp.Name {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

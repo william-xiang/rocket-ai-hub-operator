@@ -65,6 +65,7 @@ const finalizer = "rocketaihub.operator.ibm.com/finalizer"
 //+kubebuilder:rbac:groups="nfd.openshift.io",resources=nodefeaturediscoveries,verbs=*
 //+kubebuilder:rbac:groups="maistra.io",resources=*,verbs=*
 //+kubebuilder:rbac:groups="config.openshift.io",resources=ingresses,verbs=*
+//+kubebuilder:rbac:groups="config.openshift.io",resources=oauths,verbs=*
 //+kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=*
 //+kubebuilder:rbac:groups="route.openshift.io",resources=routes/custom-host,verbs=*
 //+kubebuilder:rbac:groups="networking.istio.io",resources=*,verbs=*

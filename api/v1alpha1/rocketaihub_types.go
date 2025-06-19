@@ -24,6 +24,8 @@ import (
 type RocketAIHubSpec struct {
 	// Components defines the optional components to be installed
 	Components Components `json:"components,omitempty"`
+	// Name of existing identity provider to be used for user authentication. If it's not specified, a Keycloak instance will be installed and used as the identity provider.
+	IdentityProvider string `json:"identityProvider,omitempty"`
 }
 
 type Components struct {

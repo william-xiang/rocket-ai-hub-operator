@@ -59,6 +59,11 @@ spec:
                 required:
                 - gpuOperator
                 type: object
+              identityProvider:
+                description: Name of existing identity provider to be used for user
+                  authentication. If it's not specified, a Keycloak instance will
+                  be installed and used as the identity provider.
+                type: string
             type: object
           status:
             description: RocketAIHubStatus defines the observed state of RocketAIHub

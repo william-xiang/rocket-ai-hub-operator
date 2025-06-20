@@ -17,12 +17,16 @@ metadata:
           "spec": {
             "components": {
               "gpuOperator": true
+            },
+            "identityProvider": {
+              "createDefaultUser": true,
+              "existingIdentityProvider": ""
             }
           }
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-06-19T23:32:28Z"
+    createdAt: "2025-06-20T19:40:12Z"
     operators.operatorframework.io/builder: operator-sdk-v1.39.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: rocketaihub-operator.v0.0.1
@@ -371,7 +375,7 @@ spec:
                       - --leader-elect
                     command:
                       - /manager
-                    image: quay.io/williamxiang/rocketaihub-operator@sha256:42586670b0a7e398ae454e16b807f207547d9dceb047a0fc3c8418d007dd0454
+                    image: quay.io/williamxiang/rocketaihub-operator@sha256:ce3874b3dc6c8c6d58f1e89fe47a911949d9176fa9d41d625644abec98ef12bd
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -488,7 +492,7 @@ spec:
   provider:
     name: IBM
   relatedImages:
-    - image: quay.io/williamxiang/rocketaihub-operator@sha256:42586670b0a7e398ae454e16b807f207547d9dceb047a0fc3c8418d007dd0454
+    - image: quay.io/williamxiang/rocketaihub-operator@sha256:ce3874b3dc6c8c6d58f1e89fe47a911949d9176fa9d41d625644abec98ef12bd
       name: manager
     - image: gcr.io/kubebuilder/kube-rbac-proxy@sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea
       name: kube-rbac-proxy

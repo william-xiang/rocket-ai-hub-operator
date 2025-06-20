@@ -8,3 +8,6 @@ metadata:
 spec:
   components:
     gpuOperator: true
+  identityProvider:
+    createDefaultUser: true
+    existingIdentityProvider: ""

@@ -67,7 +67,7 @@ func (v *RocketAIHubValidator) ValidateCreate(ctx context.Context, obj runtime.O
 
 	// Check if the specified identity provider exists in the cluster
 	rocketaihub := obj.(*RocketAIHub)
-	targetIDP := rocketaihub.Spec.IdentityProvider
+	targetIDP := rocketaihub.Spec.IdentityProvider.ExistingIdentityProvider
 	if targetIDP != "" {
 		exists, err := v.identityProviderExists(ctx, targetIDP)
 		if err != nil {

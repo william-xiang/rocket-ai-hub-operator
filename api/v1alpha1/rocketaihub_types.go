@@ -24,8 +24,8 @@ import (
 type RocketAIHubSpec struct {
 	// Components defines the optional components to be installed
 	Components Components `json:"components,omitempty"`
-	// Name of existing identity provider to be used for user authentication. If it's not specified, a Keycloak instance will be installed and used as the identity provider.
-	IdentityProvider string `json:"identityProvider,omitempty"`
+	// Configuration of identity provider used for user authentication
+	IdentityProvider IdentityProvider `json:"identityProvider,omitempty"`
 }
 
 type Components struct {
@@ -33,6 +33,15 @@ type Components struct {
 	// +kubebuilder:validation:Required
 	// Choose whether to install the GPU Operator
 	GpuOperator bool `json:"gpuOperator"`
+}
+
+type IdentityProvider struct {
+	// Name of existing identity provider in the cluster. If omitted, Keycloak will be used.
+	ExistingIdentityProvider string `json:"existingIdentityProvider,omitempty"`
+	// +kubebuilder:default=true
+	// +kubebuilder:validation:Required
+	// Create the default user in Keycloak
+	CreateDefaultUser bool `json:"createDefaultUser"`
 }
 
 // RocketAIHubStatus defines the observed state of RocketAIHub

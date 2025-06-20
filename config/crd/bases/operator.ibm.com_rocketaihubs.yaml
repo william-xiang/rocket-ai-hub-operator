@@ -50,10 +50,19 @@ spec:
                 - gpuOperator
                 type: object
               identityProvider:
-                description: Name of existing identity provider to be used for user
-                  authentication. If it's not specified, a Keycloak instance will
-                  be installed and used as the identity provider.
-                type: string
+                description: Configuration of identity provider used for user authentication
+                properties:
+                  createDefaultUser:
+                    default: true
+                    description: Create the default user in Keycloak
+                    type: boolean
+                  existingIdentityProvider:
+                    description: Name of existing identity provider in the cluster.
+                      If omitted, Keycloak will be used.
+                    type: string
+                required:
+                - createDefaultUser
+                type: object
             type: object
           status:
             description: RocketAIHubStatus defines the observed state of RocketAIHub

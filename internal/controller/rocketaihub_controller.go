@@ -86,6 +86,8 @@ const finalizer = "rocketaihub.operator.ibm.com/finalizer"
 //+kubebuilder:rbac:groups="serving.kserve.io",resources=*,verbs=*
 //+kubebuilder:rbac:groups="nvidia.com",resources=*,verbs=*
 //+kubebuilder:rbac:groups="security.openshift.io",resources=securitycontextconstraints,verbs=*
+//+kubebuilder:rbac:groups=keycloak.org,resources=keycloaks,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=keycloak.org,resources=keycloakrealms,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state for RocketAIHub instance

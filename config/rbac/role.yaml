@@ -113,6 +113,30 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - keycloak.org
+  resources:
+  - keycloakrealms
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keycloak.org
+  resources:
+  - keycloaks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - kubeflow.org
   resources:
   - '*'

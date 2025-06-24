@@ -143,6 +143,14 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - kubeflow.org
+  resources:
+  - profiles
+  verbs:
+  - delete
+  - get
+  - list
+- apiGroups:
   - maistra.io
   resources:
   - '*'
@@ -312,3 +320,19 @@ rules:
   - '*'
   verbs:
   - '*'
+- apiGroups:
+  - user.openshift.io
+  resources:
+  - identities
+  verbs:
+  - delete
+  - get
+  - list
+- apiGroups:
+  - user.openshift.io
+  resources:
+  - users
+  verbs:
+  - delete
+  - get
+  - list

@@ -88,6 +88,9 @@ const finalizer = "rocketaihub.operator.ibm.com/finalizer"
 //+kubebuilder:rbac:groups="security.openshift.io",resources=securitycontextconstraints,verbs=*
 //+kubebuilder:rbac:groups=keycloak.org,resources=keycloaks,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=keycloak.org,resources=keycloakrealms,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=user.openshift.io,resources=users,verbs=get;list;delete
+//+kubebuilder:rbac:groups=user.openshift.io,resources=identities,verbs=get;list;delete
+//+kubebuilder:rbac:groups=kubeflow.org,resources=profiles,verbs=get;list;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state for RocketAIHub instance
@@ -122,7 +125,7 @@ func (r *RocketAIHubReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	} else {
 		if controllerutil.ContainsFinalizer(rocketaihub, finalizer) {
 			// Cleanup the resources
-			if err := r.Uninstall(ctx); err != nil {
+			if err := r.Uninstall(ctx, req); err != nil {
 				return ctrl.Result{}, err
 			}
 

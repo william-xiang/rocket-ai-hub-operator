@@ -17,6 +17,7 @@ COPY api/ api/
 COPY internal/controller/ internal/controller/
 COPY kubeflow-ppc64le-manifests/ manifests/
 COPY gpu-operator/deployments/gpu-operator/ gpu-operator/
+COPY keycloak/ keycloak/
 COPY pkg/ pkg/
 
 # Build
@@ -32,6 +33,7 @@ WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY --from=builder /workspace/manifests/ manifests/
 COPY --from=builder /workspace/gpu-operator/ gpu-operator/
+COPY --from=builder /workspace/keycloak/ keycloak/
 
 # Install git which is used by Krusty to load manifests from a Git URL
 RUN apk update && apk add git

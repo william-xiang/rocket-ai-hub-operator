@@ -4,11 +4,13 @@ go 1.24.1
 
 require (
 	github.com/kserve/kserve v0.15.2
+	github.com/kubeflow/kubeflow/components/profile-controller v0.0.0-20250604123614-643f812f3fd0
 	github.com/mittwald/go-helm-client v0.12.17
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.36.3
 	github.com/openshift/api v0.0.0-20250619092108-ef565c20f0d5
 	github.com/operator-framework/api v0.31.0
+	github.com/redhat-cop/namespace-configuration-operator v1.2.6
 	helm.sh/helm/v3 v3.18.3
 	k8s.io/api v0.33.2
 	k8s.io/apiextensions-apiserver v0.33.2
@@ -54,7 +56,6 @@ require (
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
@@ -130,6 +131,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.64.0 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
+	github.com/redhat-cop/operator-utils v1.3.8 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rubenv/sql-migrate v1.8.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

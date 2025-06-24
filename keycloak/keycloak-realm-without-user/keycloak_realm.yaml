@@ -1,0 +1,28 @@
+apiVersion: keycloak.org/v1alpha1
+kind: KeycloakRealm
+metadata:
+  name: rocketaihub-realm
+spec:
+  instanceSelector:
+    matchLabels:
+      app: sso
+  realm:
+    clients:
+      - redirectUris:
+          - "https://oauth-openshift.${CLUSTER_DOMAIN}/*"
+        webOrigins:
+          - "https://kubeflow.${CLUSTER_DOMAIN}"
+        clientId: rocketaihub
+        enabled: true
+        secret: ${CLIENT_SECRET}
+        clientAuthenticatorType: client-secret
+        publicClient: false
+        protocol: openid-connect
+        standardFlowEnabled: true
+        directAccessGrantsEnabled: true
+    id: rocketaihub
+    realm: rocketaihub
+    enabled: true
+    displayName: Rocket AI Hub
+    rememberMe: true
+    displayNameHtml: <b>Rocket AI Hub</b>

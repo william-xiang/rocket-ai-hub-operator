@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,9 +17,16 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 
 	servingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	operatorv1alph1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	profilev1beta1 "github.com/kubeflow/kubeflow/components/profile-controller/api/v1beta1"
+	configv1 "github.com/openshift/api/config/v1"
+	projectv1 "github.com/openshift/api/project/v1"
+	userv1 "github.com/openshift/api/user/v1"
+	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	redhatcop "github.com/redhat-cop/namespace-configuration-operator/api/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -32,6 +41,7 @@ import (
 var (
 	manifestRootPath           = "/manifests/overlays/openshift"
 	gpuOperatorPath            = "/gpu-operator"
+	keycloakPath               = "/keycloak"
 	valueOptions               = values.Options{Values: []string{"installCRDs=true"}}
 	certManagerIsReady         = "CertManagerIsReady"
 	dependentOperatorsAreReady = "DependentOperatorsAreReady"
@@ -48,14 +58,22 @@ var (
 	certManagerReleaseName     = "cert-manager"
 	gpuOperatorReleaseName     = "gpu-operator"
 	gpuOperatorVersion         = "v1.10.1-ubi8"
+	keycloakProjectName        = "rocketaihub-keycloak"
+	keycloakSubscription       = "keycloak-subscription"
+	keycloakPackageName        = "rhsso-operator"
+	rocketaihubIDPName         = "rocketaihub"
+	idpClientSecretName        = "rocketaihub-client-secret"
+	idpCAConfigMapName         = "rocketaihub-ca-configmap"
 )
 
 // Install all the components
 func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) error {
 	// Change the path of manifests and GPU operator for debugging
-	if rootPath := os.Getenv("PROJECT_ROOT_PATH"); rootPath != "" {
+	rootPath := os.Getenv("PROJECT_ROOT_PATH")
+	if rootPath != "" {
 		manifestRootPath = filepath.Join(rootPath, "kubeflow-ppc64le-manifests/overlays/openshift")
 		gpuOperatorPath = filepath.Join(rootPath, "gpu-operator/deployments/gpu-operator")
+		keycloakPath = filepath.Join(rootPath, "keycloak")
 	}
 
 	// Install Cert Manager operator using helm, then update the status of CR
@@ -151,6 +169,10 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	if err := r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout); err != nil {
 		return err
 	}
+	_, err := setClusterDomain(ctx, r.Client)
+	if err != nil {
+		return err
+	}
 	manifestPath = filepath.Join(manifestRootPath, "servicemesh")
 	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
 		return err
@@ -185,6 +207,11 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	}
 	if waitErr != nil {
 		return waitErr
+	}
+
+	// Configure UserConfig object
+	if err := r.configureOAuth(ctx, req); err != nil {
+		return err
 	}
 
 	logger.Info("Instance of Rocket AI Hub operator is deployed successfully!")
@@ -276,7 +303,15 @@ func installHelmChart(ctx context.Context, chartSpec helmclient.ChartSpec, chart
 }
 
 // Uninstall the components
-func (r *RocketAIHubReconciler) Uninstall(ctx context.Context) error {
+func (r *RocketAIHubReconciler) Uninstall(ctx context.Context, req ctrl.Request) error {
+	// Change the path of manifests and GPU operator for debugging
+	rootPath := os.Getenv("PROJECT_ROOT_PATH")
+	if rootPath != "" {
+		manifestRootPath = filepath.Join(rootPath, "kubeflow-ppc64le-manifests/overlays/openshift")
+		gpuOperatorPath = filepath.Join(rootPath, "gpu-operator/deployments/gpu-operator")
+		keycloakPath = filepath.Join(rootPath, "keycloak")
+	}
+
 	// Delete all the existing inference service instance
 	// List function implicitly triggers a watch via the underlying informer cache, which will cause some issue after deleting the CRD InferenceService
 	// So change to use an uncached client to send the one-time request to the server
@@ -324,8 +359,85 @@ func (r *RocketAIHubReconciler) Uninstall(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := helmClient.UninstallReleaseByName(gpuOperatorReleaseName); err != nil && !errors.IsNotFound(err) {
+	err = helmClient.UninstallReleaseByName(gpuOperatorReleaseName)
+	if err != nil && !strings.HasPrefix(err.Error(), "uninstall: Release not loaded") {
 		return err
+	}
+
+	// Delete the Keycloak realm
+	rocketaihub := rocketaihubv1alpha1.RocketAIHub{}
+	if err := r.Get(ctx, req.NamespacedName, &rocketaihub); err != nil {
+		return err
+	}
+	idpName := rocketaihub.Spec.IdentityProvider.ExistingIdentityProvider
+	if idpName == "" {
+		var keycloakRealmPath string
+		if rocketaihub.Spec.IdentityProvider.CreateDefaultUser {
+			keycloakRealmPath = filepath.Join(keycloakPath, "keycloak-realm-with-user")
+		} else {
+			keycloakRealmPath = filepath.Join(keycloakPath, "keycloak-realm-without-user")
+		}
+		if err := resources.DeleteResources(ctx, r.Client, keycloakRealmPath); err != nil {
+			return err
+		}
+	}
+
+	// Remove the Keycloak identity provider from OpenShift OAuth
+	if rocketaihub.Spec.IdentityProvider.ExistingIdentityProvider == "" {
+		oAuth := &configv1.OAuth{}
+		if err := r.Get(ctx, types.NamespacedName{Name: "cluster"}, oAuth); err != nil {
+			return err
+		}
+		newIDPs := []configv1.IdentityProvider{}
+		for _, idp := range oAuth.Spec.IdentityProviders {
+			if idp.Name != rocketaihubIDPName {
+				newIDPs = append(newIDPs, idp)
+			}
+		}
+		if len(newIDPs) < len(oAuth.Spec.IdentityProviders) {
+			oAuth.Spec.IdentityProviders = newIDPs
+			if err := r.Update(ctx, oAuth); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Delete all the profiles
+	profileList := profilev1beta1.ProfileList{}
+	if err := uncachedClient.List(ctx, &profileList); err != nil && !errors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+		return err
+	}
+	for _, profile := range profileList.Items {
+		if err := r.Client.Delete(ctx, &profile); err != nil {
+			return err
+		}
+	}
+
+	// Delete all the users from the Keycloak identity provider
+	userList := userv1.UserList{}
+	if err := uncachedClient.List(ctx, &userList); err != nil && !errors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+		return err
+	}
+	for _, user := range userList.Items {
+		identities := user.Identities
+		if len(identities) == 1 && strings.HasPrefix(identities[0], rocketaihubIDPName) {
+			if err := r.Client.Delete(ctx, &user); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Delete all the identities associated with the Keycloak identity provider
+	identityList := userv1.IdentityList{}
+	if err := uncachedClient.List(ctx, &identityList); err != nil && !errors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+		return err
+	}
+	for _, identity := range identityList.Items {
+		if strings.HasPrefix(identity.Name, rocketaihubIDPName) {
+			if err := r.Client.Delete(ctx, &identity); err != nil {
+				return err
+			}
+		}
 	}
 
 	logger.Info("Instance of Rocket AI Hub operator is removed successfully!")
@@ -384,7 +496,7 @@ func startsWithString(strs []string, str string) bool {
 
 // Approve all the pending install plans
 func (r *RocketAIHubReconciler) approveInstallPlans(ctx context.Context) error {
-	installPlans := operatorv1alph1.InstallPlanList{}
+	installPlans := operatorsv1alpha1.InstallPlanList{}
 	if err := r.List(ctx, &installPlans); err != nil {
 		return err
 	}
@@ -403,7 +515,7 @@ func (r *RocketAIHubReconciler) approveInstallPlans(ctx context.Context) error {
 		phase := installPlan.Status.Phase
 		csvName := installPlan.Spec.ClusterServiceVersionNames[0]
 		// The install plan needs to be approved which requires manual approval and CSV name is the expected one
-		if phase == operatorv1alph1.InstallPlanPhaseRequiresApproval && startsWithString(expectedCSVNames, csvName) {
+		if phase == operatorsv1alpha1.InstallPlanPhaseRequiresApproval && startsWithString(expectedCSVNames, csvName) {
 			logger.Info(fmt.Sprintf("Approving the install plan %s in project %s", installPlan.Name, installPlan.Namespace))
 			installPlan.Spec.Approved = true
 			if err := r.Update(ctx, &installPlan); err != nil {
@@ -411,5 +523,215 @@ func (r *RocketAIHubReconciler) approveInstallPlans(ctx context.Context) error {
 			}
 		}
 	}
+	return nil
+}
+
+func setClientSecret() (string, error) {
+	randomBytes := make([]byte, 32)
+	_, err := rand.Read(randomBytes)
+	if err != nil {
+		return "", err
+	}
+	clientSecret := base64.StdEncoding.EncodeToString(randomBytes)
+	os.Setenv("CLIENT_SECRET", clientSecret)
+	return clientSecret, nil
+}
+
+func setClusterDomain(ctx context.Context, client client.Client) (string, error) {
+	ingress := &configv1.Ingress{}
+	err := client.Get(ctx, types.NamespacedName{Name: "cluster"}, ingress)
+	if err != nil {
+		return "", err
+	}
+	clusterDomain := ingress.Spec.Domain
+	os.Setenv("CLUSTER_DOMAIN", clusterDomain)
+	return clusterDomain, nil
+}
+
+// This method will install Keycloak and add it in OAuth as identity provider if no existing identity provider is specified during the installation.
+func (r *RocketAIHubReconciler) configureOAuth(ctx context.Context, req ctrl.Request) error {
+	rocketaihub := rocketaihubv1alpha1.RocketAIHub{}
+	if err := r.Get(ctx, req.NamespacedName, &rocketaihub); err != nil {
+		return err
+	}
+	// Install and configure Keycloak if the existing identity provider is not specified in CR
+	idpName := rocketaihub.Spec.IdentityProvider.ExistingIdentityProvider
+	if idpName == "" {
+		idpName = rocketaihubIDPName
+		ownerRef := []metav1.OwnerReference{
+			{
+				APIVersion:         "operator.ibm.com/v1alpha1",
+				Kind:               "RocketAIHub",
+				Name:               rocketaihub.Name,
+				UID:                rocketaihub.UID,
+				Controller:         &[]bool{true}[0],
+				BlockOwnerDeletion: &[]bool{true}[0],
+			},
+		}
+		// Install the Keycloak operator
+		keycloakProject := projectv1.Project{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            keycloakProjectName,
+				OwnerReferences: ownerRef,
+			},
+		}
+		if err := r.Create(ctx, &keycloakProject); err != nil && !errors.IsAlreadyExists(err) {
+			return err
+		}
+		keycloakOperatorGroup := operatorsv1.OperatorGroup{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            keycloakProjectName,
+				Namespace:       keycloakProjectName,
+				OwnerReferences: ownerRef,
+			},
+			Spec: operatorsv1.OperatorGroupSpec{TargetNamespaces: []string{keycloakProjectName}},
+		}
+		if err := r.Create(ctx, &keycloakOperatorGroup); err != nil && !errors.IsAlreadyExists(err) {
+			return err
+		}
+		keycloakSubscription := operatorsv1alpha1.Subscription{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            keycloakSubscription,
+				Namespace:       keycloakProjectName,
+				OwnerReferences: ownerRef,
+			},
+			Spec: &operatorsv1alpha1.SubscriptionSpec{
+				Channel:                "stable",
+				Package:                keycloakPackageName,
+				CatalogSource:          "redhat-operators",
+				CatalogSourceNamespace: "openshift-marketplace",
+			},
+		}
+		if err := r.Create(ctx, &keycloakSubscription); err != nil && !errors.IsAlreadyExists(err) {
+			return err
+		}
+		// Wait for the Keycloak operator to be ready
+		namespacedName := types.NamespacedName{
+			Name:      keycloakPackageName,
+			Namespace: keycloakProjectName,
+		}
+		if err := r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout); err != nil {
+			return err
+		}
+		// Create an instance of Keycloak
+		keycloakCRPath := filepath.Join(keycloakPath, "keycloak-cr")
+		if err := resources.CreateResources(ctx, r.Client, keycloakCRPath); err != nil {
+			return err
+		}
+		namespacedName = types.NamespacedName{
+			Name:      "keycloak",
+			Namespace: keycloakProjectName,
+		}
+		if err := r.waitForObject(ctx, &appsv1.StatefulSet{}, namespacedName, retryInterval, timeout); err != nil {
+			return err
+		}
+		// Create a Keycloak realm for Rocket AI Hub
+		var keycloakRealmPath string
+		if rocketaihub.Spec.IdentityProvider.CreateDefaultUser {
+			keycloakRealmPath = filepath.Join(keycloakPath, "keycloak-realm-with-user")
+		} else {
+			keycloakRealmPath = filepath.Join(keycloakPath, "keycloak-realm-without-user")
+		}
+		// Create a new environment variable for Keycloak client secret
+		clientSecret, err := setClientSecret()
+		if err != nil {
+			return err
+		}
+		if err := resources.CreateResources(ctx, r.Client, keycloakRealmPath); err != nil {
+			return err
+		}
+		// Create a secret which contains the keycloak client secret for the new identity provider
+		idpClientSecret := corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "rocketaihub-client-secret",
+				Namespace:       "openshift-config",
+				OwnerReferences: ownerRef,
+			},
+			StringData: map[string]string{"clientSecret": clientSecret},
+			Type:       corev1.SecretTypeOpaque,
+		}
+		if err := r.Create(ctx, &idpClientSecret); err != nil && !errors.IsAlreadyExists(err) {
+			return err
+		}
+		// Create a config map which contains the ca certificate of default ingress for the new identity provider
+		routerCASecret := &corev1.Secret{}
+		if err := r.Get(ctx, types.NamespacedName{Name: "router-ca", Namespace: "openshift-ingress-operator"}, routerCASecret); err != nil {
+			return err
+		}
+		caCert := string(routerCASecret.Data["tls.crt"])
+		idpCAConfigMap := corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            idpCAConfigMapName,
+				Namespace:       "openshift-config",
+				OwnerReferences: ownerRef,
+			},
+			Data: map[string]string{"ca.crt": caCert},
+		}
+		if err := r.Create(ctx, &idpCAConfigMap); err != nil && !errors.IsAlreadyExists(err) {
+			return err
+		}
+		// Add Keycloak as an identity provider of the OpenShift OAuth
+		oAuth := &configv1.OAuth{}
+		if err := r.Get(ctx, types.NamespacedName{Name: "cluster"}, oAuth); err != nil {
+			return err
+		}
+		rocketaihubIDPExists := false
+		for _, idp := range oAuth.Spec.IdentityProviders {
+			if idp.Name == rocketaihubIDPName {
+				rocketaihubIDPExists = true
+				break
+			}
+		}
+		if !rocketaihubIDPExists {
+			clusterDomain, err := setClusterDomain(ctx, r.Client)
+			if err != nil {
+				return err
+			}
+			issuer := fmt.Sprintf("https://keycloak-%s.%s/auth/realms/%s", keycloakProjectName, clusterDomain, rocketaihubIDPName)
+			idp := configv1.IdentityProvider{
+				Name:          rocketaihubIDPName,
+				MappingMethod: configv1.MappingMethodClaim,
+				IdentityProviderConfig: configv1.IdentityProviderConfig{
+					Type: configv1.IdentityProviderTypeOpenID,
+					OpenID: &configv1.OpenIDIdentityProvider{
+						ClientID:     rocketaihubIDPName,
+						ClientSecret: configv1.SecretNameReference{Name: idpClientSecretName},
+						CA:           configv1.ConfigMapNameReference{Name: idpCAConfigMapName},
+						Issuer:       issuer,
+						Claims: configv1.OpenIDClaims{
+							PreferredUsername: []string{"email"},
+							Name:              []string{"name"},
+							Email:             []string{"email"},
+						},
+					},
+				},
+			}
+			oAuth.Spec.IdentityProviders = append(oAuth.Spec.IdentityProviders, idp)
+			if err := r.Update(ctx, oAuth); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := r.configureUserConfig(ctx, idpName); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UserConfig is from Namespace Configuration Operator and used to create a Kubeflow Profile
+// when a user logins via the identity provider specified in the UserConfig CR.
+func (r *RocketAIHubReconciler) configureUserConfig(ctx context.Context, idpName string) error {
+	// Patch the user config object using the new identity provider name
+	userConfig := &redhatcop.UserConfig{}
+	if err := r.Get(ctx, types.NamespacedName{Name: "kubeflow-user", Namespace: "kubeflow"}, userConfig); err != nil {
+		return err
+	}
+	userConfig.Spec.ProviderName = idpName
+	if err := r.Update(ctx, userConfig); err != nil {
+		return err
+	}
+
 	return nil
 }

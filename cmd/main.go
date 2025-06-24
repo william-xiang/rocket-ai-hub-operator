@@ -39,8 +39,14 @@ import (
 
 	//+kubebuilder:scaffold:imports
 	servingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	profilev1beta1 "github.com/kubeflow/kubeflow/components/profile-controller/api/v1beta1"
 	configv1 "github.com/openshift/api/config/v1"
-	operatorv1alph1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	projectv1 "github.com/openshift/api/project/v1"
+	userv1 "github.com/openshift/api/user/v1"
+	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	redhatcop "github.com/redhat-cop/namespace-configuration-operator/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -51,13 +57,18 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(operatorv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 	utilruntime.Must(configv1.AddToScheme(scheme))
 	utilruntime.Must(apiextv1.AddToScheme(scheme))
 	utilruntime.Must(servingv1beta1.AddToScheme(scheme))
-	utilruntime.Must(operatorv1alph1.AddToScheme(scheme))
+	utilruntime.Must(operatorsv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(projectv1.AddToScheme(scheme))
+	utilruntime.Must(operatorsv1.AddToScheme(scheme))
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(redhatcop.AddToScheme(scheme))
+	utilruntime.Must(profilev1beta1.AddToScheme(scheme))
+	utilruntime.Must(userv1.AddToScheme(scheme))
 }
 
 func main() {

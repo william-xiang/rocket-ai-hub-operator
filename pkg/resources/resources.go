@@ -3,13 +3,10 @@ package resources
 import (
 	"context"
 	"os"
-	"strings"
 
-	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logr "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/kustomize/api/krusty"
@@ -19,23 +16,6 @@ import (
 )
 
 var logger = logr.Log.WithName("RocketAIHub Controller")
-
-// Substitutes the values of environment variables in the manifests
-func substituteEnv(ctx context.Context, client client.Client, yaml string) (string, error) {
-	// Substitute the value of environment variable CLUSTER_DOMAIN for servicemesh
-	if strings.Contains(yaml, "${CLUSTER_DOMAIN}") {
-		ingress := &configv1.Ingress{}
-		err := client.Get(ctx, types.NamespacedName{Name: "cluster"}, ingress)
-		if err != nil {
-			return "", err
-		}
-		os.Setenv("CLUSTER_DOMAIN", ingress.Spec.Domain)
-		newYaml := os.ExpandEnv(yaml)
-		return newYaml, nil
-	}
-
-	return yaml, nil
-}
 
 // Get all the resources from the given manifest path using kustomize
 func getResources(manifestPath string) ([]*resource.Resource, error) {
@@ -52,16 +32,13 @@ func getResources(manifestPath string) ([]*resource.Resource, error) {
 }
 
 // Get Unstructured object from Resource object
-func getUnstructuredObj(ctx context.Context, client client.Client, resource *resource.Resource) (*unstructured.Unstructured, error) {
+func getUnstructuredObj(resource *resource.Resource) (*unstructured.Unstructured, error) {
 	// Convert Resource object to Unstructured object
 	// Unstructured object has functioning TypeMeta features-- kind, version, etc.
 	out := map[string]interface{}{}
 	resourceYaml := resource.MustYaml()
 	// Substitute the environment variables in the yaml file
-	newResourceYaml, err := substituteEnv(ctx, client, resourceYaml)
-	if err != nil {
-		return nil, err
-	}
+	newResourceYaml := os.ExpandEnv(resourceYaml)
 
 	if err := yaml.Unmarshal([]byte(newResourceYaml), out); err != nil {
 		return nil, err
@@ -88,7 +65,7 @@ func CreateResources(ctx context.Context, client client.Client, manifestPath str
 }
 
 func createResource(ctx context.Context, client client.Client, resource *resource.Resource) error {
-	unstructured, err := getUnstructuredObj(ctx, client, resource)
+	unstructured, err := getUnstructuredObj(resource)
 	if err != nil {
 		return err
 	}
@@ -119,7 +96,7 @@ func DeleteResources(ctx context.Context, client client.Client, manifestPath str
 }
 
 func deleteResource(ctx context.Context, client client.Client, resource *resource.Resource) error {
-	unstructured, err := getUnstructuredObj(ctx, client, resource)
+	unstructured, err := getUnstructuredObj(resource)
 	if err != nil {
 		return err
 	}

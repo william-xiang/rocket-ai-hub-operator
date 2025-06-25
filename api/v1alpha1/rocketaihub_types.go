@@ -46,7 +46,10 @@ type IdentityProvider struct {
 
 // RocketAIHubStatus defines the observed state of RocketAIHub
 type RocketAIHubStatus struct {
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	Conditions      []metav1.Condition `json:"conditions,omitempty"`
+	KeycloakURL     string             `json:"keycloakURL,omitempty"`
+	KubeflowURL     string             `json:"kubeflowURL,omitempty"`
+	KubeflowVersion string             `json:"kubeflowVersion,omitempty"`
 }
 
 //+kubebuilder:object:root=true

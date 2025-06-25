@@ -26,7 +26,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-06-24T05:38:45Z"
+    createdAt: "2025-06-25T14:30:04Z"
     operators.operatorframework.io/builder: operator-sdk-v1.39.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: rocketaihub-operator.v0.0.1
@@ -423,7 +423,7 @@ spec:
                       - --leader-elect
                     command:
                       - /manager
-                    image: quay.io/williamxiang/rocketaihub-operator@sha256:c17b14a1233b88d49a27743b03b200dd1e86026d26f21ba4bc0cb70b2cffe09e
+                    image: quay.io/williamxiang/rocketaihub-operator@sha256:d274d405a8cdb6d9e973e4d9c7662e8baa479e107fc1ca34d8cfe052eafda53c
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -540,10 +540,10 @@ spec:
   provider:
     name: IBM
   relatedImages:
-    - image: quay.io/williamxiang/rocketaihub-operator@sha256:c17b14a1233b88d49a27743b03b200dd1e86026d26f21ba4bc0cb70b2cffe09e
-      name: manager
     - image: gcr.io/kubebuilder/kube-rbac-proxy@sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea
       name: kube-rbac-proxy
+    - image: quay.io/williamxiang/rocketaihub-operator@sha256:d274d405a8cdb6d9e973e4d9c7662e8baa479e107fc1ca34d8cfe052eafda53c
+      name: manager
   version: 0.0.1
   webhookdefinitions:
     - admissionReviewVersions:

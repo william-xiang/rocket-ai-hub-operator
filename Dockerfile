@@ -18,6 +18,7 @@ COPY internal/controller/ internal/controller/
 COPY kubeflow-ppc64le-manifests/ manifests/
 COPY gpu-operator/deployments/gpu-operator/ gpu-operator/
 COPY keycloak/ keycloak/
+COPY version/ version/
 COPY pkg/ pkg/
 
 # Build

@@ -136,6 +136,12 @@ spec:
                   - type
                   type: object
                 type: array
+              keycloakURL:
+                type: string
+              kubeflowURL:
+                type: string
+              kubeflowVersion:
+                type: string
             type: object
         type: object
     served: true

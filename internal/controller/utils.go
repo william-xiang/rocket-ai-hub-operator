@@ -12,6 +12,7 @@ import (
 
 	rocketaihubv1alpha1 "github.com/IBM/rocketaihub-operator/api/v1alpha1"
 	"github.com/IBM/rocketaihub-operator/pkg/resources"
+	version "github.com/IBM/rocketaihub-operator/version"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/mittwald/go-helm-client/values"
 	"helm.sh/helm/v3/pkg/repo"
@@ -94,7 +95,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	}
 	conditionMessage := fmt.Sprintf("Installation of %s %s is successful", certManagerReleaseName, certManagerVersion)
 	installErr := installHelmChart(ctx, chartSpec, &chartRepo)
-	if err := r.updateStatus(ctx, req, certManagerIsReady, conditionMessage, installErr); err != nil {
+	if err := r.updateCondition(ctx, req, certManagerIsReady, conditionMessage, installErr); err != nil {
 		return err
 	}
 	if installErr != nil {
@@ -105,7 +106,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	manifestPath := filepath.Join(manifestRootPath, "subscriptions")
 	conditionMessage = "Installation of dependent operators is successful"
 	installErr = resources.CreateResources(ctx, r.Client, manifestPath)
-	if err := r.updateStatus(ctx, req, dependentOperatorsAreReady, conditionMessage, installErr); err != nil {
+	if err := r.updateCondition(ctx, req, dependentOperatorsAreReady, conditionMessage, installErr); err != nil {
 		return err
 	}
 	if installErr != nil {
@@ -141,7 +142,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		}
 		conditionMessage := fmt.Sprintf("Installation of %s %s is successful", gpuOperatorReleaseName, gpuOperatorVersion)
 		installErr := installHelmChart(ctx, chartSpec, nil)
-		if err := r.updateStatus(ctx, req, gpuOperatorIsReady, conditionMessage, installErr); err != nil {
+		if err := r.updateCondition(ctx, req, gpuOperatorIsReady, conditionMessage, installErr); err != nil {
 			return err
 		}
 		if installErr != nil {
@@ -169,7 +170,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	if err := r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout); err != nil {
 		return err
 	}
-	_, err := setClusterDomain(ctx, r.Client)
+	clusterDomain, err := setClusterDomain(ctx, r.Client)
 	if err != nil {
 		return err
 	}
@@ -184,7 +185,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	}
 	conditionMessage = "Service mesh is configured successfully"
 	waitErr := r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout)
-	if err := r.updateStatus(ctx, req, servicemeshIsReady, conditionMessage, installErr); err != nil {
+	if err := r.updateCondition(ctx, req, servicemeshIsReady, conditionMessage, installErr); err != nil {
 		return err
 	}
 	if waitErr != nil {
@@ -202,7 +203,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	}
 	conditionMessage = "Installation of Kubeflow is successful"
 	waitErr = r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout)
-	if err := r.updateStatus(ctx, req, kubeflowIsReady, conditionMessage, installErr); err != nil {
+	if err := r.updateCondition(ctx, req, kubeflowIsReady, conditionMessage, installErr); err != nil {
 		return err
 	}
 	if waitErr != nil {
@@ -214,11 +215,20 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		return err
 	}
 
+	// Update status of RocketAIHub CR
+	status := rocketaihub.Status
+	status.KeycloakURL = "https://kubeflow." + clusterDomain
+	status.KubeflowURL = "https://keycloak-rocketaihub-keycloak." + clusterDomain
+	status.KubeflowVersion = version.KubeflowVersion
+	if err := r.updateStatus(ctx, req, status); err != nil {
+		return err
+	}
+
 	logger.Info("Instance of Rocket AI Hub operator is deployed successfully!")
 	return nil
 }
 
-func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Request, condType string, condMessage string, err error) error {
+func (r *RocketAIHubReconciler) updateCondition(ctx context.Context, req ctrl.Request, condType string, condMessage string, err error) error {
 	rocketaihub := &rocketaihubv1alpha1.RocketAIHub{}
 	if err := r.Get(ctx, req.NamespacedName, rocketaihub); err != nil {
 		// Error reading the object, requeue the request
@@ -246,6 +256,25 @@ func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Reque
 			logger.Error(err, "Resource status update failed.")
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (r *RocketAIHubReconciler) updateStatus(ctx context.Context, req ctrl.Request, newStatus rocketaihubv1alpha1.RocketAIHubStatus) error {
+	rocketaihub := &rocketaihubv1alpha1.RocketAIHub{}
+	if err := r.Get(ctx, req.NamespacedName, rocketaihub); err != nil {
+		// Error reading the object, requeue the request
+		logger.Error(err, "Failed to get RocketAIHub instance")
+		return err
+	}
+
+	rocketaihub.Status.KeycloakURL = newStatus.KeycloakURL
+	rocketaihub.Status.KubeflowURL = newStatus.KubeflowURL
+	rocketaihub.Status.KubeflowVersion = version.KubeflowVersion
+	if err := r.Status().Update(ctx, rocketaihub); err != nil {
+		logger.Error(err, "Resource status update failed.")
+		return err
 	}
 
 	return nil

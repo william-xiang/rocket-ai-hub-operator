@@ -66,24 +66,13 @@ func (v *RocketAIHubValidator) ValidateCreate(ctx context.Context, obj runtime.O
 	}
 
 	// Check if the specified identity provider exists in the cluster
-	rocketaihub := obj.(*RocketAIHub)
-	targetIDP := rocketaihub.Spec.IdentityProvider.ExistingIdentityProvider
-	if targetIDP != "" {
-		exists, err := v.identityProviderExists(ctx, targetIDP)
-		if err != nil {
-			return nil, err
-		}
-		if !exists {
-			return nil, fmt.Errorf("cannot find the specified identity provider in cluster. Fix it by either specifying the name of an existing identity provider in the cluster or leaving it empty to use Keycloak as the default identity provider")
-		}
-	}
-
-	return nil, nil
+	return v.checkIdentityProvider(ctx, obj)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *RocketAIHubValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
-	return nil, nil
+	// Check if the specified identity provider exists in the cluster
+	return v.checkIdentityProvider(ctx, newObj)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -105,4 +94,21 @@ func (r *RocketAIHubValidator) identityProviderExists(ctx context.Context, targe
 	}
 
 	return false, nil
+}
+
+// Check if the specified identity provider exists in the cluster
+func (v *RocketAIHubValidator) checkIdentityProvider(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	rocketaihub := obj.(*RocketAIHub)
+	targetIDP := rocketaihub.Spec.IdentityProvider.ExistingIdentityProvider
+	if targetIDP != "" {
+		exists, err := v.identityProviderExists(ctx, targetIDP)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, fmt.Errorf("cannot find the specified identity provider in cluster. Fix it by either specifying the name of an existing identity provider in the cluster or leaving it empty to use Keycloak as the default identity provider")
+		}
+	}
+
+	return nil, nil
 }

@@ -18,7 +18,25 @@ import (
 var logger = logr.Log.WithName("RocketAIHub Controller")
 
 // Get all the resources from the given manifest path using kustomize
-func getResources(manifestPath string) ([]*resource.Resource, error) {
+func getResources(manifestPath string, filePaths []string) ([]*resource.Resource, error) {
+	// Substitute the values of environment variables in files before creating the ResMap
+	fileMap := make(map[string]string)
+	for _, filePath := range filePaths {
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return nil, err
+		}
+		// Preserve the original content of the file
+		oldContent := string(data)
+		fileMap[filePath] = oldContent
+		// Substitute the values of environment variables
+		newContent := os.ExpandEnv(oldContent)
+		err = os.WriteFile(filePath, []byte(newContent), 0644)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Get a kustomizer instance to deploy the applications using the manifests
 	kustomizer := krusty.MakeKustomizer(krusty.MakeDefaultOptions())
 	fs := filesys.MakeFsOnDisk()
@@ -28,6 +46,15 @@ func getResources(manifestPath string) ([]*resource.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Restore the file with preserved content
+	for _, filePath := range filePaths {
+		err = os.WriteFile(filePath, []byte(fileMap[filePath]), 0644)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return resMap.Resources(), nil
 }
 
@@ -36,11 +63,7 @@ func getUnstructuredObj(resource *resource.Resource) (*unstructured.Unstructured
 	// Convert Resource object to Unstructured object
 	// Unstructured object has functioning TypeMeta features-- kind, version, etc.
 	out := map[string]interface{}{}
-	resourceYaml := resource.MustYaml()
-	// Substitute the environment variables in the yaml file
-	newResourceYaml := os.ExpandEnv(resourceYaml)
-
-	if err := yaml.Unmarshal([]byte(newResourceYaml), out); err != nil {
+	if err := yaml.Unmarshal([]byte(resource.MustYaml()), out); err != nil {
 		return nil, err
 	}
 
@@ -48,8 +71,9 @@ func getUnstructuredObj(resource *resource.Resource) (*unstructured.Unstructured
 }
 
 // Create Resources with provided manifests using kustomize
-func CreateResources(ctx context.Context, client client.Client, manifestPath string) error {
-	resources, err := getResources(manifestPath)
+// Parameter filePaths contains path of files with references to environment variables of the form $VARIABLE or ${VARIABLE} being replaced with the corresponding values
+func CreateResources(ctx context.Context, client client.Client, manifestPath string, filePaths []string) error {
+	resources, err := getResources(manifestPath, filePaths)
 	if err != nil {
 		return err
 	}
@@ -79,8 +103,8 @@ func createResource(ctx context.Context, client client.Client, resource *resourc
 }
 
 // Delete resources with provided manifests using kustomize
-func DeleteResources(ctx context.Context, client client.Client, manifestPath string) error {
-	resources, err := getResources(manifestPath)
+func DeleteResources(ctx context.Context, client client.Client, manifestPath string, filePaths []string) error {
+	resources, err := getResources(manifestPath, filePaths)
 	if err != nil {
 		return err
 	}

@@ -3,3 +3,35 @@ kind: Kustomization
 namespace: rocketaihub-keycloak
 resources:
 - keycloak_realm.yaml
+
+configMapGenerator:
+- name: values
+  env: values.env
+
+replacements:
+- source:
+    kind: ConfigMap
+    name: values
+    version: v1
+    fieldPath: data.clusterDomain
+  targets:
+  - select:
+      kind: KeycloakRealm
+      name: rocketaihub-realm
+    fieldPaths:
+      - spec.realm.clients.0.redirectUris.0
+      - spec.realm.clients.0.webOrigins.0
+    options:
+      delimiter: '.'
+      index: 1
+- source:
+    kind: ConfigMap
+    name: values
+    version: v1
+    fieldPath: data.clientSecret
+  targets:
+  - select:
+      kind: KeycloakRealm
+      name: rocketaihub-realm
+    fieldPaths:
+      - spec.realm.clients.0.secret

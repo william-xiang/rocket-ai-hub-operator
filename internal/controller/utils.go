@@ -105,7 +105,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	// Install operators Service Mesh (incl. Elasticsearch, Kiali, Jaeger), Namespace-Configuration, Serverless, Node Feature Discovery, GPU Operator, and Grafana
 	manifestPath := filepath.Join(manifestRootPath, "subscriptions")
 	conditionMessage = "Installation of dependent operators is successful"
-	installErr = resources.CreateResources(ctx, r.Client, manifestPath)
+	installErr = resources.CreateResources(ctx, r.Client, manifestPath, nil)
 	if err := r.updateCondition(ctx, req, dependentOperatorsAreReady, conditionMessage, installErr); err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 		return err
 	}
 	manifestPath = filepath.Join(manifestRootPath, "nfd")
-	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
+	if err := resources.CreateResources(ctx, r.Client, manifestPath, nil); err != nil {
 		return err
 	}
 
@@ -152,7 +152,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 
 	// Configure grafana
 	manifestPath = filepath.Join(manifestRootPath, "grafana")
-	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
+	if err := resources.CreateResources(ctx, r.Client, manifestPath, nil); err != nil {
 		return err
 	}
 
@@ -170,12 +170,14 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	if err := r.waitForObject(ctx, &appsv1.Deployment{}, namespacedName, retryInterval, timeout); err != nil {
 		return err
 	}
+	// Create a new environment variable for cluster domain
 	clusterDomain, err := setClusterDomain(ctx, r.Client)
 	if err != nil {
 		return err
 	}
 	manifestPath = filepath.Join(manifestRootPath, "servicemesh")
-	if err := resources.CreateResources(ctx, r.Client, manifestPath); err != nil {
+	filePath := filepath.Join(manifestPath, "global-params.env")
+	if err := resources.CreateResources(ctx, r.Client, manifestPath, []string{filePath}); err != nil {
 		return err
 	}
 	// Wait for deployment istiod-kubeflow is ready
@@ -193,7 +195,7 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 	}
 
 	// Deploy Kubeflow
-	if err := resources.CreateResources(ctx, r.Client, manifestRootPath); err != nil {
+	if err := resources.CreateResources(ctx, r.Client, manifestRootPath, nil); err != nil {
 		return err
 	}
 	// Wait for deployment centraldashboard is ready
@@ -373,13 +375,13 @@ func (r *RocketAIHubReconciler) Uninstall(ctx context.Context, req ctrl.Request)
 	}
 
 	// Delete the kubeflow
-	if err := resources.DeleteResources(ctx, r.Client, manifestRootPath); err != nil {
+	if err := resources.DeleteResources(ctx, r.Client, manifestRootPath, nil); err != nil {
 		return err
 	}
 
 	// Delete the service mesh configuration
 	manifestPath := filepath.Join(manifestRootPath, "servicemesh")
-	if err := resources.DeleteResources(ctx, r.Client, manifestPath); err != nil {
+	if err := resources.DeleteResources(ctx, r.Client, manifestPath, nil); err != nil {
 		return err
 	}
 
@@ -406,7 +408,7 @@ func (r *RocketAIHubReconciler) Uninstall(ctx context.Context, req ctrl.Request)
 		} else {
 			keycloakRealmPath = filepath.Join(keycloakPath, "keycloak-realm-without-user")
 		}
-		if err := resources.DeleteResources(ctx, r.Client, keycloakRealmPath); err != nil {
+		if err := resources.DeleteResources(ctx, r.Client, keycloakRealmPath, nil); err != nil {
 			return err
 		}
 	}
@@ -644,7 +646,7 @@ func (r *RocketAIHubReconciler) configureOAuth(ctx context.Context, req ctrl.Req
 		}
 		// Create an instance of Keycloak
 		keycloakCRPath := filepath.Join(keycloakPath, "keycloak-cr")
-		if err := resources.CreateResources(ctx, r.Client, keycloakCRPath); err != nil {
+		if err := resources.CreateResources(ctx, r.Client, keycloakCRPath, nil); err != nil {
 			return err
 		}
 		namespacedName = types.NamespacedName{
@@ -666,7 +668,8 @@ func (r *RocketAIHubReconciler) configureOAuth(ctx context.Context, req ctrl.Req
 		if err != nil {
 			return err
 		}
-		if err := resources.CreateResources(ctx, r.Client, keycloakRealmPath); err != nil {
+		filePath := filepath.Join(keycloakRealmPath, "values.env")
+		if err := resources.CreateResources(ctx, r.Client, keycloakRealmPath, []string{filePath}); err != nil {
 			return err
 		}
 		// Create a secret which contains the keycloak client secret for the new identity provider

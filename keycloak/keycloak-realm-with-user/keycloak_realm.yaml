@@ -9,12 +9,12 @@ spec:
   realm:
     clients:
       - redirectUris:
-          - "https://oauth-openshift.${CLUSTER_DOMAIN}/*"
+          - "https://oauth-openshift.CLUSTER_DOMAIN_PLACEHOLDER/*"
         webOrigins:
-          - "https://kubeflow.${CLUSTER_DOMAIN}"
+          - "https://kubeflow.CLUSTER_DOMAIN_PLACEHOLDER"
         clientId: rocketaihub
         enabled: true
-        secret: ${CLIENT_SECRET}
+        secret: CLIENT_SECRET_PLACEHOLDER
         clientAuthenticatorType: client-secret
         publicClient: false
         protocol: openid-connect

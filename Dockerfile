@@ -39,6 +39,9 @@ COPY --from=builder /workspace/keycloak/ keycloak/
 # Install git which is used by Krusty to load manifests from a Git URL
 RUN apk update && apk add git
 
+# Change the permission of files
+RUN chmod -R 777 manifests/ keycloak/
+
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]

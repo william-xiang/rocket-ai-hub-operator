@@ -8,8 +8,7 @@ spec:
       app: sso
   realm:
     clients:
-      - redirectUris:
-          - "https://oauth-openshift.CLUSTER_DOMAIN_PLACEHOLDER/*"
+      - redirectUris: []
         webOrigins:
           - "https://kubeflow.CLUSTER_DOMAIN_PLACEHOLDER"
         clientId: rocketaihub

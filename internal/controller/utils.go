@@ -576,6 +576,7 @@ func setClusterDomain(ctx context.Context, client client.Client) (string, error)
 	}
 	clusterDomain := ingress.Spec.Domain
 	os.Setenv("CLUSTER_DOMAIN", clusterDomain)
+	os.Setenv("REDIRECT_URI", fmt.Sprintf("https://oauth-openshift.%s/*", clusterDomain))
 	return clusterDomain, nil
 }
 

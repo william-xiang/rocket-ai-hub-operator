@@ -3,7 +3,9 @@ kind: ClusterServiceVersion
 metadata:
   annotations:
     alm-examples: '[]'
-    capabilities: Basic Install
+    capabilities: Seamless Upgrades
+    containerImage: quay.io/williamxiang/rocketaihub-operator@sha256:d0c954eb2a2a256fc4dd6322bd30f33efd6259d20d4b7c9b2e673e6b6006c618
+    repository: https://github.com/william-xiang/rocket-ai-hub-operator.git
   name: rocketaihub-operator.v0.0.0
   namespace: placeholder
 spec:
@@ -38,9 +40,9 @@ spec:
   - AI
   - ML
   links:
-  - name: Rocketaihub Operator
-    url: https://rocketaihub-operator.domain
-  maturity: alpha
+  - name: Rocket AI Hub for IBM Power Announcement
+    url: https://www.ibm.com/docs/en/announcements/rocket-ai-hub-power
+  maturity: beta
   provider:
     name: IBM
   version: 0.0.0

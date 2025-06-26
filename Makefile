@@ -273,31 +273,6 @@ OPERATOR_SDK = $(shell which operator-sdk)
 endif
 endif
 
-.PHONY: bundle
-bundle: manifests kustomize operator-sdk yq ## Generate bundle manifests and metadata, then validate generated files.
-	$(OPERATOR_SDK) generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
-	# add supported os and arch in CSV
-	$(YQ) eval '.metadata.labels["operatorframework.io/arch.ppc64le"] = "supported" | .metadata.labels["operatorframework.io/os.linux"] = "supported"' \
-		-i ./bundle/manifests/rocketaihub-operator.clusterserviceversion.yaml
-	$(OPERATOR_SDK) bundle validate ./bundle
-
-.PHONY: bundle-build
-bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
-
-.PHONY: bundle-buildx
-bundle-buildx: bundle ## Build the bundle image.
-	$(CONTAINER_TOOL) buildx create --name project-v3-builder
-	$(CONTAINER_TOOL) buildx use project-v3-builder
-	$(CONTAINER_TOOL) buildx build --push --provenance=false --platform=$(PLATFORMS) --tag ${BUNDLE_IMG} -f bundle.Dockerfile .
-	$(CONTAINER_TOOL) buildx rm project-v3-builder
-
-.PHONY: bundle-push
-bundle-push: ## Push the bundle image.
-	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
-
 .PHONY: opm
 OPM = $(LOCALBIN)/opm
 opm: ## Download opm locally if necessary.
@@ -340,6 +315,34 @@ else
 JQ = $(shell which jq)
 endif
 endif
+
+.PHONY: bundle
+OPERATOR_IMG_DIGEST := $(shell docker manifest inspect -v $(IMG) | $(JQ) -r .Descriptor.digest)
+bundle: manifests kustomize operator-sdk yq ## Generate bundle manifests and metadata, then validate generated files.
+	$(OPERATOR_SDK) generate kustomize manifests -q
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+	# add supported os and arch in CSV
+	$(YQ) eval '.metadata.labels["operatorframework.io/arch.ppc64le"] = "supported" | .metadata.labels["operatorframework.io/os.linux"] = "supported"' \
+		-i ./bundle/manifests/rocketaihub-operator.clusterserviceversion.yaml
+	# update the operator image digest in CSV
+	sed -i "s|containerImage.*|containerImage: $(IMAGE_TAG_BASE)@$(OPERATOR_IMG_DIGEST)|" ./bundle/manifests/rocketaihub-operator.clusterserviceversion.yaml
+	$(OPERATOR_SDK) bundle validate ./bundle
+
+.PHONY: bundle-build
+bundle-build: ## Build the bundle image.
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+.PHONY: bundle-buildx
+bundle-buildx: bundle ## Build the bundle image.
+	$(CONTAINER_TOOL) buildx create --name project-v3-builder
+	$(CONTAINER_TOOL) buildx use project-v3-builder
+	$(CONTAINER_TOOL) buildx build --push --provenance=false --platform=$(PLATFORMS) --tag ${BUNDLE_IMG} -f bundle.Dockerfile .
+	$(CONTAINER_TOOL) buildx rm project-v3-builder
+
+.PHONY: bundle-push
+bundle-push: ## Push the bundle image.
+	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
 
 # A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
 # These images MUST exist in a registry and be pull-able.

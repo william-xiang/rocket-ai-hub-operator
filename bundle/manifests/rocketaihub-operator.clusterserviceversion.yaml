@@ -25,10 +25,12 @@ metadata:
           }
         }
       ]
-    capabilities: Basic Install
-    createdAt: "2025-06-26T18:00:59Z"
+    capabilities: Seamless Upgrades
+    containerImage: quay.io/williamxiang/rocketaihub-operator@sha256:050b2d21919751908d5b87e831c8df1a76c682c4fa45d1394a752b816a9428fe
+    createdAt: "2025-06-26T22:02:43Z"
     operators.operatorframework.io/builder: operator-sdk-v1.39.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
+    repository: https://github.com/william-xiang/rocket-ai-hub-operator.git
   name: rocketaihub-operator.v0.0.1
   namespace: placeholder
   labels:
@@ -423,7 +425,7 @@ spec:
                       - --leader-elect
                     command:
                       - /manager
-                    image: quay.io/williamxiang/rocketaihub-operator@sha256:175ecb0db8485e8524a579a81b61c8d2b1b1cc1511fb79e1e759fb3781b52580
+                    image: quay.io/williamxiang/rocketaihub-operator@sha256:050b2d21919751908d5b87e831c8df1a76c682c4fa45d1394a752b816a9428fe
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -534,16 +536,18 @@ spec:
     - AI
     - ML
   links:
-    - name: Rocketaihub Operator
-      url: https://rocketaihub-operator.domain
-  maturity: alpha
+    - name: Rocket AI Hub for IBM Power Announcement
+      url: https://www.ibm.com/docs/en/announcements/rocket-ai-hub-power
+  maturity: beta
   provider:
     name: IBM
   relatedImages:
-    - image: quay.io/williamxiang/rocketaihub-operator@sha256:175ecb0db8485e8524a579a81b61c8d2b1b1cc1511fb79e1e759fb3781b52580
+    - image: quay.io/williamxiang/rocketaihub-operator@sha256:050b2d21919751908d5b87e831c8df1a76c682c4fa45d1394a752b816a9428fe
       name: manager
     - image: gcr.io/kubebuilder/kube-rbac-proxy@sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea
       name: kube-rbac-proxy
+    - image: quay.io/williamxiang/rocketaihub-operator@sha256:d0c954eb2a2a256fc4dd6322bd30f33efd6259d20d4b7c9b2e673e6b6006c618
+      name: rocketaihub-operator-d0c954eb2a2a256fc4dd6322bd30f33efd6259d20d4b7c9b2e673e6b6006c618-annotation
   version: 0.0.1
   webhookdefinitions:
     - admissionReviewVersions:

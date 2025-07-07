@@ -219,8 +219,11 @@ func (r *RocketAIHubReconciler) Install(ctx context.Context, req ctrl.Request) e
 
 	// Update status of RocketAIHub CR
 	status := rocketaihub.Status
-	status.KeycloakURL = "https://kubeflow." + clusterDomain
-	status.KubeflowURL = "https://keycloak-rocketaihub-keycloak." + clusterDomain
+	status.KubeflowURL = "https://kubeflow." + clusterDomain
+	// Only display the Keycloak URL when the identity provider is not specified in CR
+	if rocketaihub.Spec.IdentityProvider.ExistingIdentityProvider == "" {
+		status.KeycloakURL = "https://keycloak-rocketaihub-keycloak." + clusterDomain
+	}
 	status.KubeflowVersion = version.KubeflowVersion
 	if err := r.updateStatus(ctx, req, status); err != nil {
 		return err
